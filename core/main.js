@@ -82,8 +82,8 @@ function processFormula(identifiedSources, formula, uniqueKey, csvData) {
         for (const libName in window.libraries) {
           const lib = window.libraries[libName];
 
-          if (lib[field] && typeof lib[field].implementation === 'function') {
-            const functionDef = lib[field];
+          if (lib.functions[field] && typeof lib.functions[field].implementation === 'function') {
+            const functionDef = lib.functions[field];
             console.log(`Function detected in library '${libName}': ${field}`);
 
             // Extract parameter values required by the function, removing default values
@@ -223,8 +223,8 @@ if (appConfig && appConfig.libraries) {
     console.log('All libraries loaded:', window.libraries);
 
     // Example usage: Call a function from the loaded libraries
-    if (window.libraries.financial && window.libraries.financial.interestIncome) {
-      const result = window.libraries.financial.interestIncome.implementation(1000, 0.05);
+    if (window.libraries.financial && window.libraries.financial.functions.interestIncome) {
+      const result = window.libraries.financial.functions.interestIncome.implementation(1000, 0.05);
       console.log('Interest Income Result:', result);
     }
   });
