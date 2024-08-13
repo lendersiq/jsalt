@@ -104,12 +104,28 @@ td {
 }
 
 /* Button styling */
-.button {
-    background-color: #50C878;; 
+.chart-button {
+    background-color: #CC5500; 
     color: white;
-    padding: 10px 20px;
+    padding: 6px 12px;
     border: none;
-    border-radius: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+    margin-top: 10px;
+}
+
+.chart-button:hover {
+    background-color: #a34400 
+}
+
+.button {
+    background-color: #50C878;
+    color: white;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
     cursor: pointer;
     font-size: 16px;
     transition: background-color 0.3s;
