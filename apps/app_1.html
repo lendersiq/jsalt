@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="../styles/base.css">
+  <title>App 1</title>
+</head>
+<body>
+  <div id="app-container"></div>
+  <script>
+    // App configuration
+    const appConfig = {
+      formula: 'checking.balance != null && savings.balance == null ? checking.balance : null',
+      unique: 'Portfolio',
+      presentation: {
+        columns: [
+          { heading: 'Branch', field: 'branch' }
+        ],
+      }
+    };
+  </script>
+  <script src="../core/main.js"></script>
+  <script src="../core/ux.js"></script>
+  <script src="../core/charts.js"></script>
+  <script src="../core/ai.js"></script>
+</body>
+</html>
