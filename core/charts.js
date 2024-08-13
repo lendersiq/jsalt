@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
   chartContainer.appendChild(plotButton);
   chartContainer.appendChild(chartCanvas);
   chartContainer.appendChild(legendContainer);
-
+  chartContainer.style.display = 'none';
   // Append the chart container to the app container
   const appContainer = document.getElementById('app-container');
   appContainer.appendChild(chartContainer);

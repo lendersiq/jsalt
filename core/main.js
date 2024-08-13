@@ -271,6 +271,7 @@ window.readFilesAndProcess = function(fileInputs, identifiedSources, appConfig) 
     .finally(() => {
       // Hide the spinner after processing
       hideSpinner();
+      document.getElementById('chart-container').style.display = 'block';
     });
 };
 
@@ -280,16 +281,7 @@ function showSpinner() {
   if (!spinner) {
     spinner = document.createElement('div');
     spinner.id = 'spinner';
-    spinner.style.position = 'fixed';
-    spinner.style.top = '50%';
-    spinner.style.left = '50%';
-    spinner.style.transform = 'translate(-50%, -50%)';
-    spinner.style.border = '16px solid #f3f3f3';
-    spinner.style.borderTop = '16px solid #3498db';
-    spinner.style.borderRadius = '50%';
-    spinner.style.width = '120px';
-    spinner.style.height = '120px';
-    spinner.style.animation = 'spin 2s linear infinite';
+    spinner.classList.add('spinner');
     document.body.appendChild(spinner);
   }
   spinner.style.display = 'block';

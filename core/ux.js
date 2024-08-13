@@ -1,9 +1,12 @@
 // Function to display combined results in a table
 function displayResultsInTable() {
   console.log('combinedResults', combinedResults);
+  const tableContainer = document.createElement('div');
+  tableContainer.className = 'table-container'; 
   const table = document.createElement('table');
-  table.className = 'table'; // Apply CSS class
-
+  table.className = 'table'; 
+  const thead = document.createElement('thead');
+  
   const headerRow = document.createElement('tr');
 
   // Create a button to handle unique ID mapping
@@ -28,7 +31,8 @@ function displayResultsInTable() {
   const headerResult = document.createElement('th');
   headerResult.textContent = 'Result';
   headerRow.appendChild(headerResult);
-  table.appendChild(headerRow);
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
 
   // Sort combinedResults by 'result' in descending order
   const sortedResults = Object.entries(combinedResults).sort((a, b) => {
@@ -98,10 +102,12 @@ function displayResultsInTable() {
 
     rows[uniqueId] = uniqueIdCell; // Store reference for updating
   });
-
-  const resultsContainer = document.getElementById('results-container');
-  resultsContainer.innerHTML = ''; // Clear previous results
-  resultsContainer.appendChild(table);
+  tableContainer.appendChild(table);
+  const resultsContainer = document.createElement('div');
+  resultsContainer.id = 'results-container';
+  resultsContainer.appendChild(tableContainer);
+  const appContainer = document.getElementById('app-container');
+  appContainer.appendChild(resultsContainer);
 
   // Function to handle unique ID button click
   function handleUniqueIdButtonClick() {
@@ -164,8 +170,14 @@ function displayResultsInTable() {
     // Render modal content
     const modalHeading = `
             <div class="modal-header">
-                <img src="../JS_box.png" alt="Logo">
-                <h2 id="modalTitle"></h2>
+                 <div class="logo-container" style="--logo-size: 60px;">
+                      <div class="square"></div>
+                      <div class="inner-square"></div>
+                      <div class="innermost-square"></div>
+                      <div class="top-square"></div> 
+                      <div class="logo-text">JS</div>
+                  </div>
+                  <h2 id="modalTitle"></h2>
             </div>
     `;
     modalContent.innerHTML = modalHeading;
@@ -221,4 +233,6 @@ function displayResultsInTable() {
   // Set up the modal on page load
   document.addEventListener('DOMContentLoaded', () => {
     showRunModal();
+    //placeholder for charts
+
   });
