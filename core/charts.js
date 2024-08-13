@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const plotButton = document.createElement('button');
   plotButton.id = 'plot-button';
   plotButton.textContent = 'View Chart';
-  plotButton.classList.add("button");
+  plotButton.className = 'chart-button';
 
   // Create the canvas for chart rendering
   const chartCanvas = document.createElement('canvas');
@@ -169,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     headerLegend.textContent = 'Legend ';
     const aiButton = document.createElement('button');
     aiButton.textContent = `${field}`;
-    aiButton.className = 'button';
+    aiButton.className = 'chart-button';
     aiButton.addEventListener('click', () => aiTableTranslater(table.id));
     headerLegend.appendChild(aiButton);
     headerRow.appendChild(headerLegend);
