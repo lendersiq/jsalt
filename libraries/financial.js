@@ -16,13 +16,14 @@ const financial = {
                 if (maturity) {
                     const maturityDate = new Date(maturity);
                     const currentDate = new Date();
-                    monthsUntilMaturity = (maturityDate.getFullYear() - currentDate.getFullYear()) * 12 + (maturityDate.getMonth() - currentDate.getMonth());
+                    monthsUntilMaturity = parseInt(Math.max(1, (maturityDate.getFullYear() - currentDate.getFullYear()) * 12 + (maturityDate.getMonth() - currentDate.getMonth())));
                 } else if (term) {
                     monthsUntilMaturity = term;
                 } else {
                     console.warn('Neither maturity date nor term provided, defaulting to 12 months');
                     monthsUntilMaturity = 12; // Default to 12 months if neither is provided
                 }
+                console.log('monthsUntilMaturity', monthsUntilMaturity)
 
                 // Calculate the total balance over the loan period
                 let totalBalance = 0;
