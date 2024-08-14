@@ -229,6 +229,45 @@ function displayResultsInTable() {
     modal.appendChild(modalContent);
     document.body.appendChild(modal);
   }
+
+  function showSpinner() {
+    let spinner = document.getElementById('spinner-container');
+    if (!spinner) {
+      // Create spinner container
+      spinner = document.createElement('div');
+      spinner.id = 'spinner-container';
+      spinner.classList.add('spinner-container');
+
+      // Create logo container (spinner itself)
+      const logoContainer = document.createElement('div');
+      logoContainer.classList.add('logo-container');
+      logoContainer.style.setProperty('--logo-size', '80px'); // Set size of the spinner
+      logoContainer.style.backgroundColor = '#fff'; 
+
+      // Create square elements
+      const square = document.createElement('div');
+      square.classList.add('square');
+      const innerSquare = document.createElement('div');
+      innerSquare.classList.add('inner-square');
+      const innermostSquare = document.createElement('div');
+      innermostSquare.classList.add('innermost-square');
+      const topSquare = document.createElement('div');
+      topSquare.classList.add('top-square');
+
+      // Append squares to logo container
+      logoContainer.appendChild(square);
+      logoContainer.appendChild(innerSquare);
+      logoContainer.appendChild(innermostSquare);
+      logoContainer.appendChild(topSquare);
+
+      // Append logo container to spinner container
+      spinner.appendChild(logoContainer);
+
+      // Append spinner container to body
+      document.body.appendChild(spinner);
+    }
+    spinner.style.display = 'flex';
+  }
   
   // Set up the modal on page load
   document.addEventListener('DOMContentLoaded', () => {

@@ -275,31 +275,11 @@ window.readFilesAndProcess = function(fileInputs, identifiedSources, appConfig) 
     });
 };
 
-// Function to show the spinner
-function showSpinner() {
-  let spinner = document.getElementById('spinner');
-  if (!spinner) {
-    spinner = document.createElement('div');
-    spinner.id = 'spinner';
-    spinner.classList.add('spinner');
-    document.body.appendChild(spinner);
-  }
-  spinner.style.display = 'block';
-}
-
 // Function to hide the spinner
 function hideSpinner() {
-  const spinner = document.getElementById('spinner');
+  const spinner = document.getElementById('spinner-container');
   if (spinner) {
     spinner.style.display = 'none';
   }
 }
 
-// Add CSS for spinner animation
-const spinnerStyle = document.createElement('style');
-spinnerStyle.textContent = `
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}`;
-document.head.appendChild(spinnerStyle);
