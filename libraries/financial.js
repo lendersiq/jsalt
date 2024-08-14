@@ -41,6 +41,15 @@ const financial = {
                 const averageBalance = totalBalance / monthsUntilMaturity;
                 return averageBalance.toFixed(2);
             }
+        },
+        loanProfit: {
+            description: "Calculates the profit of a loan",
+            implementation: function(principal, rate) {
+                const interest = principal * rate;
+                const servicingExpense = principal * financial.attributes.loanServicingFactor.value;
+                console.log(`interest: ${interest} servicing Expense: ${servicingExpense}`);
+                return interest + servicingExpense;
+            }
         }
     },
     attributes: {
