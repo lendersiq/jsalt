@@ -243,7 +243,8 @@ function displayResultsInTable() {
       logoContainer.classList.add('logo-container');
       logoContainer.style.setProperty('--logo-size', '80px'); // Set size of the spinner
       logoContainer.style.backgroundColor = '#fff'; 
-
+      logoContainer.style.animation = 'spin 3s linear infinite'; 
+      
       // Create square elements
       const square = document.createElement('div');
       square.classList.add('square');
