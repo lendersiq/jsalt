@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="../styles/base.css">
-  <title>App 2 - Intro to functions</title>
+  <title>loan profit</title>
 </head>
 <body>
   <div id="app-container"></div>
@@ -13,7 +13,8 @@
     const appConfig = {
       libraries: [
         'financial',
-        'organization'
+        'organization',
+        'https://bankersiq.com/api/trates/'
       ],
       /*formula: 'loan.interestIncome + loan.charges',*/
       formula: 'loan.loanProfit',
