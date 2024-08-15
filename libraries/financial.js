@@ -46,9 +46,10 @@ const financial = {
             description: "Calculates the profit of a loan",
             implementation: function(principal, rate) {
                 const interest = principal * rate;
+                const fundingExpense = principal * window.libraries.api.trates.values[12];
                 const servicingExpense = principal * financial.attributes.loanServicingFactor.value;
-                console.log(`interest: ${interest} servicing Expense: ${servicingExpense}`);
-                return interest + servicingExpense;
+                console.log(`interest: ${interest}, funding expense: ${fundingExpense}, servicing expense: ${servicingExpense}`);
+                return interest - fundingExpense - servicingExpense;
             }
         }
     },
