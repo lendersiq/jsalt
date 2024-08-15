@@ -180,8 +180,23 @@ function isDate(value) {
   return !isNaN(Date.parse(value)) && isNaN(value);
 }
 
+function getFilenameWithoutExtension(url) {
+  const urlObject = new URL(url);
+  const pathname = urlObject.pathname;
+
+  // Remove trailing slash if present
+  const trimmedPathname = pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+
+  const filename = trimmedPathname.substring(trimmedPathname.lastIndexOf('/') + 1);
+  const filenameWithoutExtension = filename.split('.').slice(0, -1).join('.') || filename;
+
+  console.log('filenameWithoutExtension', filenameWithoutExtension);
+  return filenameWithoutExtension;
+}
+
+
 function loadLibraryScripts(filePaths, callback) {
-  console.log('filePaths', filePaths)
+  console.log('filePaths', filePaths);
   // Initialize a global libraries object to store all exports
   window.libraries = {};
   let loadedScripts = 0;
@@ -196,24 +211,43 @@ function loadLibraryScripts(filePaths, callback) {
 
   // Iterate over each file path to create and load script elements
   filePaths.forEach(filePath => {
-    const script = document.createElement('script');
-    script.src = '../libraries/' + filePath + '.js';
-    script.type = 'text/javascript';
-    script.async = false; // Ensure scripts are loaded in order
+    if (typeof filePath === 'string' && (filePath.startsWith('http://') || filePath.startsWith('https://'))) {
+      // Handle API URL
+      fetch(filePath)
+        .then(response => response.json())
+        .then(data => {
+          const libName = getFilenameWithoutExtension(filePath); // Use the new function
+          window.libraries.api = window.libraries.api || {};
+          window.libraries.api[libName] = data;
+          console.log(`API library '${libName}' loaded:`, data);
+          scriptLoaded();
+        })
+        .catch(error => {
+          console.error(`Failed to load API from ${filePath}:`, error);
+          scriptLoaded(); // Still call the callback to continue the process
+        });
+    } else {
+      // Handle local JS file
+      const script = document.createElement('script');
+      script.src = '../libraries/' + filePath + '.js';
+      script.type = 'text/javascript';
+      script.async = false; // Ensure scripts are loaded in order
 
-    script.onload = function() {
-      // Determine the library name from the file path
-      const libName = filePath.split('/').pop().replace('.js', '');
-      if (window[libName]) {
-        // Merge each library into the global libraries object
-        window.libraries[libName] = window[libName];
-      }
-      scriptLoaded();
-    };
+      script.onload = function() {
+        const libName = filePath.split('/').pop().replace('.js', ''); // Extract the name without extension
+        if (window[libName]) {
+          window.libraries[libName] = window[libName];
+        }
+        scriptLoaded();
+      };
 
-    script.onerror = (e) => console.error(`Failed to load script: ${filePath}`, e);
+      script.onerror = (e) => {
+        console.error(`Failed to load script: ${filePath}`, e);
+        scriptLoaded();
+      };
 
-    document.head.appendChild(script);
+      document.head.appendChild(script);
+    }
   });
 }
 
