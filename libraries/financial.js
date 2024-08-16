@@ -54,8 +54,8 @@ const financial = {
                 const interest = principal * rate;
                 const monthsUntilMaturity = financial.functions.monthsUntilMaturity.implementation(maturity, term);
                 const fundingExpense = principal * window.libraries.api.trates.values[monthsUntilMaturity];
-                const originationExpense = Math.min(principal, financial.attributes.principalCostMax.value) * financial.attributes.loanOriginationFactor.value;  
-                const servicingExpense = principal * financial.attributes.loanServicingFactor.value / monthsUntilMaturity * 12;
+                const originationExpense = Math.min(principal, financial.attributes.principalCostMax.value) * financial.attributes.loanOriginationFactor.value / Math.min(monthsUntilMaturity, 60) * 12;  
+                const servicingExpense = principal * financial.attributes.loanServicingFactor.value;
                 console.log(`interest: ${interest}, funding expense: ${fundingExpense}, origination expense: ${originationExpense}, servicing expense: ${servicingExpense}`);
                 return interest - fundingExpense - originationExpense - servicingExpense;
             }
