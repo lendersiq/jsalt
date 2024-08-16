@@ -54,16 +54,25 @@ const financial = {
                 const interest = principal * rate;
                 const monthsUntilMaturity = financial.functions.monthsUntilMaturity.implementation(maturity, term);
                 const fundingExpense = principal * window.libraries.api.trates.values[monthsUntilMaturity];
-                const servicingExpense = principal * financial.attributes.loanServicingFactor.value;
-                console.log(`interest: ${interest}, funding expense: ${fundingExpense}, servicing expense: ${servicingExpense}`);
-                return interest - fundingExpense - servicingExpense;
+                const originationExpense = Math.min(principal, financial.attributes.principalCostMax.value) * financial.attributes.loanOriginationFactor.value;  
+                const servicingExpense = principal * financial.attributes.loanServicingFactor.value / monthsUntilMaturity * 12;
+                console.log(`interest: ${interest}, funding expense: ${fundingExpense}, origination expense: ${originationExpense}, servicing expense: ${servicingExpense}`);
+                return interest - fundingExpense - originationExpense - servicingExpense;
             }
         }
     },
     attributes: {
         loanServicingFactor: {
-            description: "The factor used to calculate loan servicing costs",
+            description: "The factor used to calculate loan servicing expenses",
             value: 0.0025
+        },
+        loanOriginationFactor: {
+            description: "The factor used to calculate loan origination expenses",
+            value: 0.01
+        },
+        principalCostMax: {
+            description: "Max principal where costs scale with loan size",
+            value: 2000000
         },
         defaultRecoveryPerc: {
             description: "The default recovery percentage",
