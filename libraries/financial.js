@@ -7,11 +7,10 @@ const financial = {
                 return principal * rate;
             }
         },
-        averageBalance: {
-            description: "Calculates the average balance of a loan over its term",
-            implementation: function(principal, payment, maturity = null, term = null) {
-                console.log('principal, payment, maturity, term', principal, payment, maturity, term)
-                // Determine months until maturity using either maturity date or term
+        monthsUntilMaturity: {
+            description: "Calculates the number of months to maturity of a financial instrument",
+            implementation: function(maturity = null, term = null) {
+                //console.log(`maturity: ${maturity}, term: ${term}`)
                 let monthsUntilMaturity;
                 if (maturity) {
                     const maturityDate = new Date(maturity);
@@ -23,8 +22,15 @@ const financial = {
                     console.warn('Neither maturity date nor term provided, defaulting to 12 months');
                     monthsUntilMaturity = 12; // Default to 12 months if neither is provided
                 }
-                console.log('monthsUntilMaturity', monthsUntilMaturity)
-
+                return monthsUntilMaturity;
+            }
+        },
+        averageBalance: {
+            description: "Calculates the average balance of a loan over its term",
+            implementation: function(principal, payment, maturity = null, term = null) {
+                console.log('principal, payment, maturity, term', principal, payment, maturity, term)
+                // Determine months until maturity using either maturity date or term
+                const monthsUntilMaturity = financial.functions.monthsUntilMaturity.implementation(maturity, term);
                 // Calculate the total balance over the loan period
                 let totalBalance = 0;
                 let currentBalance = principal;
@@ -42,11 +48,12 @@ const financial = {
                 return averageBalance.toFixed(2);
             }
         },
-        loanProfit: {
+        profit: {
             description: "Calculates the profit of a loan",
-            implementation: function(principal, rate) {
+            implementation: function(principal, rate,  maturity = null, term = null) {
                 const interest = principal * rate;
-                const fundingExpense = principal * window.libraries.api.trates.values[12];
+                const monthsUntilMaturity = financial.functions.monthsUntilMaturity.implementation(maturity, term);
+                const fundingExpense = principal * window.libraries.api.trates.values[monthsUntilMaturity];
                 const servicingExpense = principal * financial.attributes.loanServicingFactor.value;
                 console.log(`interest: ${interest}, funding expense: ${fundingExpense}, servicing expense: ${servicingExpense}`);
                 return interest - fundingExpense - servicingExpense;
