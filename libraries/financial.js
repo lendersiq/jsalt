@@ -162,7 +162,7 @@ const financial = {
                 const riskObject =  window.analytics.loan[aiTranslater(Object.keys(window.analytics.loan), 'risk')];
                 //console.log('risk data:', riskObject, Object.hasOwn(riskObject, "convexProbability"), riskObject.convexProbability);
                 let probabilityOfDefault = .02;
-                if (Object.hasOwn(riskObject, "convexProbability")) {  // risk data reached statistical signifigance
+                if (riskObject && Object.hasOwn(riskObject, "convexProbability")) {  // risk data reached statistical signifigance
                     if (typeof risk === "string") {
                         const match = risk.match(/^(\d+)([a-zA-Z])$/);
                         if (match) {
