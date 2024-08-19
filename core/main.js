@@ -21,19 +21,42 @@ function parseCSV(csvContent, callback) {
   callback(data);
 }
 
+// Synonym library to map common synonyms to their respective headers
+const synonymLibrary = {
+  'fee': ['charge', 'cost', 'duty', 'collection', 'levy'],
+  'open': ['origination', 'start', 'create', 'establish', 'setup']
+};
+
 // AI translation function to map formula fields to CSV headers
 function aiTranslater(headers, field) {
   function stem(word) {
-    return word.replace(/(ing|ed|s|es|er|est|ly)$/i, '');
+    return word
+      .replace(/(ing|ed|ly)$/i, '')  // Remove common suffixes like 'ing', 'ed', 'ly'
+      .replace(/(es)$/i, 'e')        // Handle plural forms like 'fees' -> 'fee', and 'boxes' -> 'box'
+      .replace(/(s)$/i, '')          // Handle remaining singular forms like 'cats' -> 'cat'
+      .replace(/(er|est)$/i, '')     // Remove comparative and superlative endings like 'er', 'est'
+      .trim();
   }
-
   const headersLower = headers.map(header => stem(header.toLowerCase()));
   const stemmedField = stem(field.toLowerCase());
-
-  const matchingHeader = headersLower.find(header => header.includes(stemmedField));
+  // First, try to find a direct match
+  let matchingHeader = headersLower.find(header => header.includes(stemmedField));
+  // If no direct match, check the synonym library
+  if (!matchingHeader && synonymLibrary[stemmedField]) {
+    const synonyms = synonymLibrary[stemmedField].map(synonym => stem(synonym));
+    matchingHeader = headersLower.find(header => 
+      synonyms.some(synonym => header.includes(synonym))
+    );
+  }
 
   return matchingHeader ? headers[headersLower.indexOf(matchingHeader)] : null;
 }
+
+// Test the aiTranslater function
+const headers = ['Portfolio', 'Date_Opened', 'Maturity_Date', 'Branch_Number', 'Class_Code', 'Opened_by_Resp_Code', 'Late_Charges'];
+const translatedHeader = aiTranslater(headers, 'fees');
+console.log('Translated Header:', translatedHeader);
+
 
 // Function to extract unique source names from the formula
 function extractSources(formula) {
@@ -67,7 +90,7 @@ function processFormula(identifiedSources, formula, uniqueKey, csvData) {
     sourceData.forEach(row => {
       const uniqueId = row[uniqueKey];
       console.log('Processing row:', row);
-      console.log('Unique ID:', uniqueId);
+      //console.log('Unique ID:', uniqueId);
 
       // Translate the formula by replacing source.field with actual data and executing functions
       const translatedFormula = formula.replace(/(\w+)\.(\w+)/g, (match, source, field) => {
@@ -84,7 +107,7 @@ function processFormula(identifiedSources, formula, uniqueKey, csvData) {
 
           if (lib.functions[field] && typeof lib.functions[field].implementation === 'function') {
             const functionDef = lib.functions[field];
-            console.log(`Function detected in library '${libName}': ${field}`);
+            //console.log(`Function detected in library '${libName}': ${field}`);
 
             // Extract parameter values required by the function, removing default values
             const paramNames = functionDef.implementation
@@ -92,19 +115,21 @@ function processFormula(identifiedSources, formula, uniqueKey, csvData) {
               .match(/\(([^)]*)\)/)[1]
               .split(',')
               .map(param => param.split('=')[0].trim()); // Remove default values like '= null'
-            console.log('Function Parameter Names:', paramNames);
+            //console.log('Function Parameter Names:', paramNames);
 
             // Retrieve parameter values from the CSV data
             const args = paramNames.map(paramName => {
               const paramHeader = aiTranslater(headers, paramName); // Translate param to CSV header
               if (paramHeader) {
                 const paramValue = row[paramHeader];
-                console.log(`pre date detect:  Parameter: ${paramName}, Value: ${paramValue}`);
+                //console.log(`pre date detect:  Parameter: ${paramName}, Value: ${paramValue}`);
                 if (isDate(paramValue)) {
-                  console.log(`Date Parameter: ${paramName}, Value: ${paramValue}`);
+                  //console.log(`Date Parameter: ${paramName}, Value: ${paramValue}`);
                   return new Date(paramValue); // Return date as Date object
+                } else if (typeof paramValue === "string") {
+                  return paramValue.trim();
                 } else {
-                  console.log(`Numeric Parameter: ${paramName}, Value: ${paramValue}`);
+                  //console.log(`Numeric Parameter: ${paramName}, Value: ${paramValue}`);
                   return parseFloat(paramValue); // Get numeric value from CSV
                 }
               }
@@ -295,6 +320,8 @@ window.readFilesAndProcess = function(fileInputs, identifiedSources, appConfig) 
 
   Promise.all(promises)
     .then(() => {
+      window.analytics = computeAnalytics(csvData);
+      console.log('Analytics:', window.analytics);
       combinedResults = processFormula(identifiedSources, appConfig.formula, appConfig.unique, csvData);
       displayResultsInTable(combinedResults);
     })
@@ -317,3 +344,146 @@ function hideSpinner() {
   }
 }
 
+function computeAnalytics(csvData) {
+  const analytics = {};
+
+  Object.keys(csvData).forEach(sourceName => {
+    const sourceData = csvData[sourceName];
+    const fieldAnalytics = {};
+
+    // Identify numeric fields by checking if all non-null values in the field are numeric
+    const numericFields = Object.keys(sourceData[0]).filter(field => {
+      const isDateField = sourceData.some(row => isDate(row[field]));
+      const isNumericField = sourceData.every(row => isNumericOrStartsWithNumeric(row[field]));
+      console.log(`Field: ${field}, Is Numeric: ${isNumericField}, Is Date: ${isDateField}`);
+      return isNumericField && !isDateField;
+    });
+
+    numericFields.forEach(field => {
+      const validValues = sourceData
+        .map(row => convertToNumeric(row[field]))
+        .filter(value => value !== null && !isNaN(value)); // Filter out null and NaN values
+
+      if (validValues.length > 0) {
+        fieldAnalytics[field] = {
+          min: Math.min(...validValues),
+          max: Math.max(...validValues),
+          mean: mean(validValues),
+          median: median(validValues),
+          variance: variance(validValues),
+          stdDeviation: stdDeviation(validValues),
+          sum: sum(validValues),
+          count: validValues.length, 
+          unique : uniqueValues(validValues)
+        };
+        if (fieldAnalytics[field].unique > 4 && fieldAnalytics[field].unique <= 16  && parseInt(fieldAnalytics[field].median) < fieldAnalytics[field].unique-1 ) {
+          fieldAnalytics[field].uniqueArray = [...new Set(validValues)];
+          fieldAnalytics[field].convexProbability = createProbabilityArray(fieldAnalytics[field].median, fieldAnalytics[field].unique, fieldAnalytics[field].uniqueArray);
+        }
+      }
+    });
+    analytics[sourceName] = fieldAnalytics;
+  });
+
+  console.log('Computed Analytics:', analytics);
+  return analytics;
+}
+
+// Helper function to check if a value is numeric or starts with a numeric
+function isNumericOrStartsWithNumeric(value) {
+  let testValue = value;
+  if (testValue === null) return true;  // 'null' in a numeric field is acceptable
+  if (typeof testValue === 'string') {
+    testValue = testValue.trim(); // Trim leading and trailing spaces if it's a string
+    if (testValue.toLowerCase() === 'null' || /^[0-9][a-zA-Z]$/.test(testValue)) return true; // Explicitly check for 'NULL' or NumChar after trimming
+    testValue = Number(testValue);
+  }
+  // Return true if the value starts with a digit or is a number
+   const isNumericOrStartsIntChar = !isNaN(testValue) || (typeof testValue === 'string' && /^\d/.test(testValue));
+   if (!isNumericOrStartsIntChar) {
+      console.log('numberic false', value)
+   }
+   return isNumericOrStartsIntChar
+}
+
+// Helper function to convert values like "3W" to a numeric value (e.g., 3.5)
+function convertToNumeric(value) {
+  if (value === null) return null; // Return null for null values
+  if (typeof value === 'string') {
+    value = value.trim(); // Trim leading and trailing spaces if it's a string
+    if (value.toLowerCase() === 'null') return null; // Return null for 'NULL' strings
+    if (/^\d/.test(value)) {
+      const numericPart = parseFloat(value.match(/^\d+/)[0]);
+      return numericPart + (value.length === 1 ? 0 : 0.5); // Add .5 if the string contains a letter after the digit
+    }
+  }
+  if (!isNaN(value)) return parseFloat(value); // Directly return numeric values
+  return null; // Return null for non-numeric values
+}
+
+// Helper function to check if a value is a valid date
+function isDate(value) {
+  return !isNaN(Date.parse(value)) && isNaN(value);
+}
+
+// Helper functions for computing statistics (as previously defined)
+function mean(values) {
+  return sum(values) / values.length;
+}
+
+function median(values) {
+  values.sort((a, b) => a - b);
+  const mid = Math.floor(values.length / 2);
+  return values.length % 2 !== 0 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+}
+
+function variance(values) {
+  const m = mean(values);
+  return mean(values.map(v => (v - m) ** 2));
+}
+
+function stdDeviation(values) {
+  return Math.sqrt(variance(values));
+}
+
+function sum(values) {
+  return values.reduce((acc, val) => acc + val, 0);
+}
+
+function uniqueValues(values) {
+  const uniqueValues = new Set(values);
+  return uniqueValues.size
+}
+
+function createProbabilityArray(median, unique, uniqueArray) {
+  /* Convexity in Risk Model applied here refers to the situation where the rate of probability becomes steeper as the value increases. 
+  In other words, the relationship between value and probability is convex, 
+  meaning that beyond the median (tipping point) small increases in value can lead to disproportionately large increases in the likelihood of an event (i.e., a loss).
+  */
+  median = parseInt(median) - 1;
+  // Function to interpolate between two values over a number of steps
+  function interpolate(startValue, endValue, steps) {
+      const stepValue = (endValue - startValue) / (steps - 1);  
+      const values = [];
+      for (let i = 0; i < steps; i++) {
+          values.push(startValue + i * stepValue);
+      }
+      return values;
+  }
+  // Generate arrays with the specified unique size
+  let probabilityArray = [];
+  // Interpolate between probabilityArray[0] and probabilityArray[median-1]
+  const firstSegment = interpolate(0, 1, median);
+  // Interpolate between probabilityArray[median] and probabilityArray[unique-1]
+  const secondSegment = interpolate(5, 100, unique - median);
+  console.log(`median: ${median}, unique: ${unique}, firstSegment: ${firstSegment}, secondSegment : ${secondSegment}`)
+
+  // Assign values to the first probability array
+  for (let i = 0; i < firstSegment.length; i++) {
+      probabilityArray[`'${uniqueArray[i]}'`] = parseFloat(firstSegment[i].toFixed(2));
+  }
+  for (let i = 0; i < secondSegment.length; i++) {
+      probabilityArray[`'${uniqueArray[median + i]}'`] = parseFloat(secondSegment[i].toFixed(2));
+  }
+  return probabilityArray;
+}
