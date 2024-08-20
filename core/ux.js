@@ -153,7 +153,7 @@ function displayResultsInTable() {
   function updateUniqueColumns(mapping) {
     Object.entries(combinedResults).forEach(([uniqueId, _]) => {
       if (mapping[uniqueId]) {
-        rows[uniqueId].textContent = mapping[uniqueId];
+        rows[uniqueId].textContent = mapping[uniqueId] + ' (' + combinedResults[uniqueId].count + ')';
       }
     });
   }
