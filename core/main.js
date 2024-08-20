@@ -392,7 +392,7 @@ function computeAnalytics(csvData) {
 // Helper function to check if a value is numeric or starts with a numeric
 function isNumericOrStartsWithNumeric(value) {
   let testValue = value;
-  if (testValue === null) return true;  // 'null' in a numeric field is acceptable
+  if (testValue === null || isNaN(testValue)) return true;  // 'null' or NaN are ignored by numeric testing
   if (typeof testValue === 'string') {
     testValue = testValue.trim(); // Trim leading and trailing spaces if it's a string
     if (testValue.toLowerCase() === 'null' || /^[0-9][a-zA-Z]$/.test(testValue)) return true; // Explicitly check for 'NULL' or NumChar after trimming
