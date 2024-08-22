@@ -157,8 +157,7 @@ const financial = {
                 const fundingExpense = principal * fundingRate;
                 const originationExpense = Math.min(principal, financial.attributes.principalCostMax.value) * financial.attributes.loanOriginationFactor.value / (Math.min(termInYears, 5));  
                 const servicingExpense = principal * financial.attributes.loanServicingFactor.value;
-
-                //const probabilityOfDefault = //I need a littel ai translation 
+                
                 //console.log('risk key:', aiTranslater(Object.keys(window.analytics.loan), 'risk'));
                 const riskObject =  window.analytics.loan[aiTranslater(Object.keys(window.analytics.loan), 'risk')];
                 //console.log('risk data:', riskObject, Object.hasOwn(riskObject, "convexProbability"), riskObject.convexProbability);
