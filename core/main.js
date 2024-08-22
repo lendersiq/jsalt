@@ -371,7 +371,7 @@ function computeAnalytics(csvData) {
           max: Math.max(...validValues),
           mean: mean(validValues),
           median: median(validValues),
-          mode: calculateMode(validValues),
+          mode: mode(validValues),
           variance: variance(validValues),
           stdDeviation: stdDeviation(validValues),
           sum: sum(validValues),
@@ -439,7 +439,7 @@ function median(values) {
   return values.length % 2 !== 0 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
 }
 
-function calculateMode(values) {
+function mode(values) {
   const frequencyMap = {};
   let maxFreq = 0;
   let mode = [];
