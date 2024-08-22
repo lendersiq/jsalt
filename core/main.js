@@ -345,6 +345,7 @@ function hideSpinner() {
 }
 
 function computeAnalytics(csvData) {
+  console.log('csvData', csvData)
   const analytics = {};
 
   Object.keys(csvData).forEach(sourceName => {
@@ -370,6 +371,7 @@ function computeAnalytics(csvData) {
           max: Math.max(...validValues),
           mean: mean(validValues),
           median: median(validValues),
+          mode: calculateMode(validValues),
           variance: variance(validValues),
           stdDeviation: stdDeviation(validValues),
           sum: sum(validValues),
@@ -378,7 +380,7 @@ function computeAnalytics(csvData) {
         };
         if (fieldAnalytics[field].unique > 4 && fieldAnalytics[field].unique <= 16  && parseInt(fieldAnalytics[field].median) < fieldAnalytics[field].unique-1 ) {
           fieldAnalytics[field].uniqueArray = [...new Set(validValues)];
-          fieldAnalytics[field].convexProbability = createProbabilityArray(fieldAnalytics[field].median, fieldAnalytics[field].unique, fieldAnalytics[field].uniqueArray);
+          fieldAnalytics[field].convexProbability = createProbabilityArray(fieldAnalytics[field].mode, fieldAnalytics[field].unique, fieldAnalytics[field].uniqueArray);
         }
       }
     });
@@ -392,7 +394,7 @@ function computeAnalytics(csvData) {
 // Helper function to check if a value is numeric or starts with a numeric
 function isNumericOrStartsWithNumeric(value) {
   let testValue = value;
-  if (testValue === null || isNaN(testValue)) return true;  // 'null' or NaN are ignored by numeric testing
+  if (testValue === null || isNaN(testValue)) return true;  // 'null' in a numeric field is acceptable
   if (typeof testValue === 'string') {
     testValue = testValue.trim(); // Trim leading and trailing spaces if it's a string
     if (testValue.toLowerCase() === 'null' || /^[0-9][a-zA-Z]$/.test(testValue)) return true; // Explicitly check for 'NULL' or NumChar after trimming
@@ -401,7 +403,7 @@ function isNumericOrStartsWithNumeric(value) {
   // Return true if the value starts with a digit or is a number
    const isNumericOrStartsIntChar = !isNaN(testValue) || (typeof testValue === 'string' && /^\d/.test(testValue));
    if (!isNumericOrStartsIntChar) {
-      console.log('numberic false', value)
+      console.log('numeric false', value)
    }
    return isNumericOrStartsIntChar
 }
@@ -437,6 +439,34 @@ function median(values) {
   return values.length % 2 !== 0 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
 }
 
+function calculateMode(values) {
+  const frequencyMap = {};
+  let maxFreq = 0;
+  let mode = [];
+
+  // Create a frequency map
+  values.forEach(value => {
+    if (frequencyMap[value]) {
+      frequencyMap[value]++;
+    } else {
+      frequencyMap[value] = 1;
+    }
+    if (frequencyMap[value] > maxFreq) {
+      maxFreq = frequencyMap[value];
+    }
+  });
+
+  // Find the mode(s)
+  for (const key in frequencyMap) {
+    if (frequencyMap[key] === maxFreq) {
+      mode.push(Number(key));
+    }
+  }
+
+  // If there's a single mode, return it, otherwise return an array of modes
+  return mode.length === 1 ? mode[0] : mode;
+}
+
 function variance(values) {
   const m = mean(values);
   return mean(values.map(v => (v - m) ** 2));
@@ -455,12 +485,13 @@ function uniqueValues(values) {
   return uniqueValues.size
 }
 
-function createProbabilityArray(median, unique, uniqueArray) {
+function createProbabilityArray(mode, unique, uniqueArray) {
+  //unique is quantity of unique values in a column, and uniqueArray contains all unique values
   /* Convexity in Risk Model applied here refers to the situation where the rate of probability becomes steeper as the value increases. 
   In other words, the relationship between value and probability is convex, 
-  meaning that beyond the median (tipping point) small increases in value can lead to disproportionately large increases in the likelihood of an event (i.e., a loss).
+  meaning that beyond the mode (value that appears most frequently in a data set which is the tipping point) small increases in value can lead to disproportionately large increases in the likelihood of an event (i.e., a loss).
   */
-  median = parseInt(median) - 1;
+  mode = parseInt(mode);
   // Function to interpolate between two values over a number of steps
   function interpolate(startValue, endValue, steps) {
       const stepValue = (endValue - startValue) / (steps - 1);  
@@ -473,17 +504,17 @@ function createProbabilityArray(median, unique, uniqueArray) {
   // Generate arrays with the specified unique size
   let probabilityArray = [];
   // Interpolate between probabilityArray[0] and probabilityArray[median-1]
-  const firstSegment = interpolate(0, 1, median);
+  const firstSegment = interpolate(0, 1, mode);
   // Interpolate between probabilityArray[median] and probabilityArray[unique-1]
-  const secondSegment = interpolate(5, 100, unique - median);
-  console.log(`median: ${median}, unique: ${unique}, firstSegment: ${firstSegment}, secondSegment : ${secondSegment}`)
+  const secondSegment = interpolate(5, 100, unique - mode);
+  console.log(`median: ${mode}, unique: ${unique}, firstSegment: ${firstSegment}, secondSegment : ${secondSegment}`)
 
   // Assign values to the first probability array
   for (let i = 0; i < firstSegment.length; i++) {
       probabilityArray[`'${uniqueArray[i]}'`] = parseFloat(firstSegment[i].toFixed(2));
   }
   for (let i = 0; i < secondSegment.length; i++) {
-      probabilityArray[`'${uniqueArray[median + i]}'`] = parseFloat(secondSegment[i].toFixed(2));
+      probabilityArray[`'${uniqueArray[mode + i]}'`] = parseFloat(secondSegment[i].toFixed(2));
   }
   return probabilityArray;
 }
