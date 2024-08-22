@@ -153,7 +153,8 @@ const financial = {
                 const interest = principal * rate;
                 const {monthsUntilMaturity, yearsUntilMaturity} = financial.functions.untilMaturity.implementation(maturity);
                 const {termInMonths, termInYears} = financial.functions.getTerm.implementation(term, open, maturity);
-                const fundingExpense = principal * window.libraries.api.trates.values[monthsUntilMaturity];
+                const fundingRate = window.libraries.api.trates.values[monthsUntilMaturity];
+                const fundingExpense = principal * fundingRate;
                 const originationExpense = Math.min(principal, financial.attributes.principalCostMax.value) * financial.attributes.loanOriginationFactor.value / (Math.min(termInYears, 5));  
                 const servicingExpense = principal * financial.attributes.loanServicingFactor.value;
 
@@ -181,8 +182,10 @@ const financial = {
                     nonInterestIncome = fees / termInYears;
                 }
                 const expectedLossProvision = probabilityOfDefault * (principal - (principal / .8 * financial.attributes.defaultRecoveryPerc.value)) / yearsUntilMaturity; 
-                console.log(`principal: ${principal}, risk: ${risk}, fees: ${fees}, years until maturity: ${yearsUntilMaturity}, term in years: ${termInYears}, interest: ${interest}, funding expense: ${fundingExpense}, origination expense: ${originationExpense}, servicing expense: ${servicingExpense}, non interest income: ${nonInterestIncome}, probability of default: ${probabilityOfDefault}, pretax: ${window.libraries.organization.attributes.taxRate.value}, expected loss: ${expectedLossProvision}`);
-                return (interest - fundingExpense - originationExpense - servicingExpense + nonInterestIncome) * (1 - window.libraries.organization.attributes.taxRate.value) - expectedLossProvision;
+                const pretax = (interest - fundingExpense - originationExpense - servicingExpense + nonInterestIncome) * (1 - window.libraries.organization.attributes.taxRate.value); 
+                const profit = pretax - expectedLossProvision;
+                console.log(`principal: ${principal}, risk: ${risk}, fees: ${fees}, years until maturity: ${yearsUntilMaturity}, term in years: ${termInYears}, rate: ${rate}, interest: ${interest}, funding rate: ${fundingRate}, funding expense: ${fundingExpense}, origination expense: ${originationExpense}, servicing expense: ${servicingExpense}, non interest income: ${nonInterestIncome}, probability of default: ${probabilityOfDefault}, pretax: ${pretax}, expected loss: ${expectedLossProvision}, profit: ${profit.toFixed(2)}`);
+                return profit;
             }
         }
     },
