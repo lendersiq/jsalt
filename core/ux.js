@@ -60,6 +60,7 @@ function displayResultsInTable() {
       appConfig.presentation.columns.forEach(column => {
         const cell = document.createElement('td');
         const field = column.field.toLowerCase(); // Use field for data access
+        let existingValue = cell.textContent; // Capture the existing value in the cell
 
         // Access data fields dynamically
         if (field === appConfig.unique.toLowerCase()) {
@@ -72,11 +73,13 @@ function displayResultsInTable() {
               // Display as integer
               cell.textContent = data[field];
             } else {
-              // Display as currency
+              // If the value is a floating-point number, accumulate it
+              const existingFloatValue = parseFloat(existingValue.replace(/[^0-9.-]+/g, "")) || 0;
+              const newFloatValue = existingFloatValue + data[field];
               cell.textContent = new Intl.NumberFormat('en-US', {
                 style: 'currency',
                 currency: 'USD'
-              }).format(data[field]);
+              }).format(newFloatValue);
             }
           } else {
             // Display non-numeric data
