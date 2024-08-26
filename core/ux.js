@@ -78,8 +78,8 @@ function displayResultsInTable() {
         if (field === appConfig.unique.toLowerCase()) {
             cell.textContent = uniqueId.toString();
         } else if (values.length > 0) {
-            if (values.every(Number.isInteger) && values.every(v => v <= 99999)) {
-                // If all values are integers and none are greater than 99999 (beyond typical attribute or classifcation systems), calculate and display the mode
+            if (values.every(Number.isInteger) && values.every(v => v <= 9999)) {
+                // If all values are integers and none are greater than 9999 (beyond typical attribute or classifcation systems), calculate and display the mode
                 const modeValue = calculateMode(values);
                 cell.textContent = modeValue;
             } else {
