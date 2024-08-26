@@ -184,7 +184,11 @@ function processFormula(identifiedSources, formula, uniqueKey, csvData) {
               const headers = Object.keys(row);
               const translatedColumn = aiTranslater(headers, column.field);
               if (translatedColumn) {
-                results[uniqueId][column.field] = row[translatedColumn] || 'N/A'; // Use the current row
+                if (results[uniqueId][column.field] !== undefined) {
+                  results[uniqueId][column.field] = `${results[uniqueId][column.field]}, ${row[translatedColumn]}`; 
+                } else {
+                  results[uniqueId][column.field] = row[translatedColumn] || 'N/A'; // Use the current row
+                }
               }
             });
           }

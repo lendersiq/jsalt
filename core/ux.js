@@ -60,39 +60,43 @@ function displayResultsInTable() {
       appConfig.presentation.columns.forEach(column => {
         const cell = document.createElement('td');
         const field = column.field.toLowerCase(); // Use field for data access
-        let existingValue = cell.textContent; // Capture the existing value in the cell
 
-        // Access data fields dynamically
-        if (field === appConfig.unique.toLowerCase()) {
-          cell.textContent = uniqueId.toString();
-        } else if (data[field] !== undefined) {
-          // Format numeric values appropriately
-          if (typeof data[field] === 'number') {
-            // Check if the number is an integer
-            if (Number.isInteger(data[field])) {
-              // Display as integer
-              cell.textContent = data[field];
+        let values;
+        if (data[field]) {
+            // Ensure data[field] is a string before using split
+            if (typeof data[field] === 'string') {
+                values = data[field].split(',').map(v => parseFloat(v.trim()));
             } else {
-              // If the value is a floating-point number, accumulate it
-              const existingFloatValue = parseFloat(existingValue.replace(/[^0-9.-]+/g, "")) || 0;
-              const newFloatValue = existingFloatValue + data[field];
-              cell.textContent = new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD'
-              }).format(newFloatValue);
+                // If data[field] is already a number or an array of numbers, use it directly
+                values = Array.isArray(data[field]) ? data[field] : [parseFloat(data[field])];
             }
-          } else {
-            // Display non-numeric data
-            cell.textContent = data[field];
-          }
         } else {
-          cell.textContent = ''; // Default empty string if field is missing
+            values = [];
+        }
+
+        // Determine the content of the cell based on the values
+        if (field === appConfig.unique.toLowerCase()) {
+            cell.textContent = uniqueId.toString();
+        } else if (values.length > 0) {
+            if (values.every(Number.isInteger) && values.every(v => v <= 99999)) {
+                // If all values are integers and none are greater than 99999 (beyond typical attribute or classifcation systems), calculate and display the mode
+                const modeValue = calculateMode(values);
+                cell.textContent = modeValue;
+            } else {
+                const sumValue = values.reduce((acc, v) => acc + v, 0);
+                cell.textContent = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD'
+                }).format(sumValue);
+            }
+        } else {
+            cell.textContent = ''; // Default empty string if field is missing
         }
 
         row.appendChild(cell);
-      });
-    }
-
+    });
+  }
+  
     // Create the cell for the result
     const valueCell = document.createElement('td');
     valueCell.textContent = new Intl.NumberFormat('en-US', {

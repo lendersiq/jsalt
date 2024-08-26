@@ -54,3 +54,39 @@ function updateTableWithMapping(mapping, tableId) {
         }
     }
 }
+
+// Analyze the column data to determine the format
+function aiAnalyzeColumnData(data, field) {
+    let integerCount = 0;
+    let floatCount = 0;
+
+    data.forEach(row => {
+        const value = row[field];
+        if (typeof value === 'number') {
+        if (Number.isInteger(value)) {
+            integerCount++;
+        } else {
+            floatCount++;
+        }
+        }
+    });
+
+    // If most values are floats, return 'currency', otherwise 'integer'
+    return floatCount > integerCount ? 'float' : 'integer';
+}
+
+function calculateMode(numbers) {
+    const frequency = {};
+    let maxFreq = 0;
+    let mode = numbers[0];
+
+    numbers.forEach(number => {
+        frequency[number] = (frequency[number] || 0) + 1;
+        if (frequency[number] > maxFreq) {
+            maxFreq = frequency[number];
+            mode = number;
+        }
+    });
+
+    return mode;
+}
