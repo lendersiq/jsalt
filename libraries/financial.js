@@ -149,7 +149,7 @@ const financial = {
         },
         profit: {
             description: "Calculates the profit of a loan",
-            implementation: function(principal, rate, risk, open, payment, fees = null, maturity = null, term = null) {
+            implementation: function(portfolio, principal, rate, risk, open, payment, fees = null, maturity = null, term = null) {
                 const interest = principal * rate;
                 const {monthsUntilMaturity, yearsUntilMaturity} = financial.functions.untilMaturity.implementation(maturity);
                 const {termInMonths, termInYears} = financial.functions.getTerm.implementation(term, open, maturity);
@@ -189,7 +189,6 @@ const financial = {
                     probabilityOfDefault = .02;
                 }
 
-            
                 let exposureAtDefault = principal;
                 let lossProvision = 0;
                 let month = 0; 
@@ -210,7 +209,7 @@ const financial = {
                 //const expectedLossProvision = probabilityOfDefault * (principal - (principal / financial.attributes.minimumLoanToValue.value * (1 - financial.attributes.expectedRecoveryRate.value))) / yearsUntilMaturity; 
                 const pretax = (interest - fundingExpense - originationExpense - servicingExpense + nonInterestIncome) * (1 - window.libraries.organization.attributes.taxRate.value); 
                 const profit = pretax - expectedLossProvision;
-                console.log(`principal: ${principal}, risk: ${risk}, fees: ${fees}, years until maturity: ${yearsUntilMaturity}, term in years: ${termInYears}, rate: ${rate}, interest: ${interest}, funding rate: ${fundingRate}, funding expense: ${fundingExpense}, origination expense: ${originationExpense}, servicing expense: ${servicingExpense}, non interest income: ${nonInterestIncome}, probability of default: ${probabilityOfDefault}, pretax: ${pretax}, expected loss: ${expectedLossProvision}, profit: ${profit.toFixed(2)}`);
+                console.log(`portfolio: ${portfolio}, principal: ${principal}, risk: ${risk}, fees: ${fees}, years until maturity: ${yearsUntilMaturity}, term in years: ${termInYears}, rate: ${rate}, interest: ${interest}, funding rate: ${fundingRate}, funding expense: ${fundingExpense}, origination expense: ${originationExpense}, servicing expense: ${servicingExpense}, non interest income: ${nonInterestIncome}, probability of default: ${probabilityOfDefault}, pretax: ${pretax}, expected loss: ${expectedLossProvision}, profit: ${profit.toFixed(2)}`);
                 return profit;
             }
         }
