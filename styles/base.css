@@ -80,7 +80,7 @@ td {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: linear-gradient(135deg, #333, #00aaff);
+    background: linear-gradient(135deg, #141414, #00aaff);
     color: white;
     padding: 10px 20px;
     border-top-left-radius: 8px;
