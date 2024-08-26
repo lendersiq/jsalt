@@ -148,57 +148,78 @@ const financial = {
             }
         },
         profit: {
-            description: "Calculates the profit of a loan",
-            implementation: function(principal, rate, risk, open, fees = null, maturity = null, term = null) {
-                const interest = principal * rate;
-                const {monthsUntilMaturity, yearsUntilMaturity} = financial.functions.untilMaturity.implementation(maturity);
-                const {termInMonths, termInYears} = financial.functions.getTerm.implementation(term, open, maturity);
-                const fundingRate = window.libraries.api.trates.values[monthsUntilMaturity] - .015;
-                const fundingExpense = principal * fundingRate;
+            description: "Calculates the profit of a loan",
+            implementation: function(principal, rate, risk, open, payment, fees = null, maturity = null, term = null) {
+                const interest = principal * rate;
+                const {monthsUntilMaturity, yearsUntilMaturity} = financial.functions.untilMaturity.implementation(maturity);
+                const {termInMonths, termInYears} = financial.functions.getTerm.implementation(term, open, maturity);
+                const fundingRate = window.libraries.api.trates.values[monthsUntilMaturity] * .75 // 75% of current funding curve
+                const fundingExpense = principal * fundingRate;
 				let originationFactor = financial.attributes.loanOriginationFactor.value;
-				let smallLoanMax = 250000;  //default
-				const principalObject =  window.analytics.loan[aiTranslater(Object.keys(window.analytics.loan), 'principal')];
+				let smallLoanMaximum = financial.attributes.smallLoanMaximum.value;  //default
+				const principalObject = window.analytics.loan[aiTranslater(Object.keys(window.analytics.loan), 'principal')];
 				if (principalObject && Object.hasOwn(principalObject, "stdDeviation")) {
-					smallLoanMax = principalObject.stdDeviation;
+					smallLoanMaximum = principalObject.stdDeviation;
 				}
-				const isConsumerSmallBusiness = termInYears <= 5 && principal < smallLoanMax 
+				const isConsumerSmallBusiness = termInYears <= 5 && principal < smallLoanMaximum; 
 				if (isConsumerSmallBusiness) {
 					originationFactor = originationFactor / 2;
 				}
-                const originationExpense = Math.min(principal, financial.attributes.principalCostMax.value) * originationFactor / (Math.min(termInYears, 10));  
-                const servicingExpense = principal * financial.attributes.loanServicingFactor.value / yearsUntilMaturity;
-                
-                //console.log('risk key:', aiTranslater(Object.keys(window.analytics.loan), 'risk'));
-                const riskObject =  window.analytics.loan[aiTranslater(Object.keys(window.analytics.loan), 'risk')];
-                //console.log('risk data:', riskObject, Object.hasOwn(riskObject, "convexProbability"), riskObject.convexProbability);
-                let probabilityOfDefault = 0;
-                if (riskObject && Object.hasOwn(riskObject, "convexProbability")) {  // risk data reached statistical signifigance
-                    if (typeof risk === "string") {
-                        const match = risk.match(/^(\d+)([a-zA-Z])$/);
-                        if (match) {
-                            // Extract the number part and convert it to a number
-                            risk = parseInt(match[1], 10) + 0.5;
-                        }
-                    }
-                    if (Object.hasOwn(riskObject.convexProbability, `'${risk}'`)) {
-                        probabilityOfDefault = riskObject.convexProbability[`'${risk}'`] * .01;
-                    } else {
-                        console.warn('cannot find key in convexProbability:', risk);
-                    }
-                } 
-                let nonInterestIncome = 0;
-                if (fees !== null) {
-                    nonInterestIncome = fees / termInYears;
-                }
-                const expectedLossProvision = probabilityOfDefault * (principal - (principal / .8 * financial.attributes.defaultRecoveryPerc.value)) / yearsUntilMaturity; 
-                const pretax = (interest - fundingExpense - originationExpense - servicingExpense + nonInterestIncome) * (1 - window.libraries.organization.attributes.taxRate.value); 
-                const profit = pretax - expectedLossProvision;
-                console.log(`principal: ${principal}, risk: ${risk}, fees: ${fees}, years until maturity: ${yearsUntilMaturity}, term in years: ${termInYears}, rate: ${rate}, interest: ${interest}, funding rate: ${fundingRate}, funding expense: ${fundingExpense}, origination expense: ${originationExpense}, servicing expense: ${servicingExpense}, non interest income: ${nonInterestIncome}, probability of default: ${probabilityOfDefault}, pretax: ${pretax}, expected loss: ${expectedLossProvision}, profit: ${profit.toFixed(2)}`);
-                return profit;
-            }
-        }
+                const originationExpense = Math.min(principal, financial.attributes.principalCostMaximum.value) * originationFactor / (Math.min(termInYears, 10));
+                const servicingExpense = principal * financial.attributes.loanServicingFactor.value / yearsUntilMaturity;
+
+                //console.log('risk key:', aiTranslater(Object.keys(window.analytics.loan), 'risk'));
+                const riskObject = window.analytics.loan[aiTranslater(Object.keys(window.analytics.loan), 'risk')];
+                //console.log('risk data:', riskObject, Object.hasOwn(riskObject, "convexProbability"), riskObject.convexProbability);
+                let probabilityOfDefault = 0;
+                if (riskObject && Object.hasOwn(riskObject, "convexProbability")) { // risk data reached statistical signifigance
+                    if (typeof risk === "string") {
+                        const match = risk.match(/^(\d+)([a-zA-Z])$/);
+                        if (match) {
+                            // Extract the number part and convert it to a number
+                            risk = parseInt(match[1], 10) + 0.5;
+                        }
+                    }
+                    if (Object.hasOwn(riskObject.convexProbability, `'${risk}'`)) {
+                        probabilityOfDefault = riskObject.convexProbability[`'${risk}'`] * .01;
+                    } else {
+                        console.warn('cannot find key in convexProbability:', risk);
+                    }
+                } else if (risk && risk !== 'NULL') {
+                    probabilityOfDefault = .02;
+                }
+
+            
+                let exposureAtDefault = principal;
+                let lossProvision = 0;
+                let month = 0; 
+                while (month < monthsUntilMaturity && exposureAtDefault > 0) {
+                    lossGivenDefault = (exposureAtDefault / financial.attributes.minimumLoanToValue.value * (1 - financial.attributes.expectedRecoveryRate.value))
+                    if (lossGivenDefault > 0) {
+                        lossProvision += probabilityOfDefault * lossGivenDefault; // Math.max(probabilityOfDefault * lossGivenDefault, financial.attributes.minimumOperatingRisk.value * probabilityOfDefault);
+                    }
+                    exposureAtDefault -= payment - exposureAtDefault * (rate/12);
+                    month++;
+                }
+                const expectedLossProvision = lossProvision / monthsUntilMaturity / yearsUntilMaturity;  // spread lossProvision cost over yearsUntilMaturity
+
+                let nonInterestIncome = 0;
+                if (fees !== null) {
+                    nonInterestIncome = fees / termInYears;
+                }
+                //const expectedLossProvision = probabilityOfDefault * (principal - (principal / financial.attributes.minimumLoanToValue.value * (1 - financial.attributes.expectedRecoveryRate.value))) / yearsUntilMaturity; 
+                const pretax = (interest - fundingExpense - originationExpense - servicingExpense + nonInterestIncome) * (1 - window.libraries.organization.attributes.taxRate.value); 
+                const profit = pretax - expectedLossProvision;
+                console.log(`principal: ${principal}, risk: ${risk}, fees: ${fees}, years until maturity: ${yearsUntilMaturity}, term in years: ${termInYears}, rate: ${rate}, interest: ${interest}, funding rate: ${fundingRate}, funding expense: ${fundingExpense}, origination expense: ${originationExpense}, servicing expense: ${servicingExpense}, non interest income: ${nonInterestIncome}, probability of default: ${probabilityOfDefault}, pretax: ${pretax}, expected loss: ${expectedLossProvision}, profit: ${profit.toFixed(2)}`);
+                return profit;
+            }
+        }
     },
     attributes: {
+        smallLoanMaximum: {
+            description: "The dollar threshold that can distinguish a small business mircoloan or a personal loan from other loan types",
+            value: 100000    
+        },
         loanServicingFactor: {
             description: "The factor used to calculate loan servicing expenses",
             value: 0.0025
@@ -207,15 +228,19 @@ const financial = {
             description: "The factor used to calculate loan origination expenses",
             value: 0.01
         },
-        principalCostMax: {
-            description: "Max principal where costs scale with loan size",
+        principalCostMaximum: {
+            description: "Maximum principal loan origination costs scale with loan size",
             value: 2000000
         },
-        defaultRecoveryPerc: {
-            description: "The default recovery percentage",
-            value: 0.50
+        minimumLoanToValue: {
+            description: "Typical Loan-to-Value (LTV) Ratio minimum. LTV expresses the loan amount as a percentage of the loan collateral's current value.",
+            value: 0.80
         },
-        minOperatingRisk: {
+        expectedRecoveryRate: {
+            description: " This represents the percentage of the exposure that a lender expects to recover if the borrower defaults expressed as a percentage (.01 to 1)",
+            value: 0.60
+        },
+        minimumOperatingRisk: {
             description: "The minimum operating risk percentage",
             value: 0.0015
         },
