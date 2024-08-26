@@ -186,8 +186,8 @@ function processFormula(identifiedSources, formula, uniqueKey, csvData) {
               if (translatedColumn) {
                 if (results[uniqueId][column.field] !== undefined) {
                   results[uniqueId][column.field] = `${results[uniqueId][column.field]}, ${row[translatedColumn]}`; 
-                } else {
-                  results[uniqueId][column.field] = row[translatedColumn] || 'N/A'; // Use the current row
+                } else if (row[translatedColumn]) {
+                  results[uniqueId][column.field] = row[translatedColumn];
                 }
               }
             });
