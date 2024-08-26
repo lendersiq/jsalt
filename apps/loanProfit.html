@@ -16,11 +16,11 @@
         'organization',
         'https://bankersiq.com/api/trates/'
       ],
-      /*formula: 'loan.interestIncome + loan.charges',*/
       formula: 'loan.profit',
       unique: 'Portfolio',
       presentation: {
         columns: [
+          { heading: 'Principal', field: 'principal' }
           { heading: 'Branch', field: 'branch' }
         ],
       }
