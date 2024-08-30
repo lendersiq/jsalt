@@ -223,7 +223,6 @@ function getFilenameWithoutExtension(url) {
   return filenameWithoutExtension;
 }
 
-
 function loadLibraryScripts(filePaths, callback) {
   console.log('filePaths', filePaths);
   // Initialize a global libraries object to store all exports
@@ -348,8 +347,19 @@ function hideSpinner() {
   }
 }
 
+function yearToDateFactor(fieldName) {
+  let factor = 1; // default to 1
+  const lowerStr = fieldName.toLowerCase();
+  if (lowerStr.includes("mtd")) {
+    factor = 12;
+  } else if (lowerStr.includes("day") || lowerStr.includes("daily")) {
+    factor = 365
+  }
+  return factor;
+} 
+
 function computeAnalytics(csvData) {
-  console.log('csvData', csvData)
+  console.log('csvData @ computeAnalytics', csvData)
   const analytics = {};
 
   Object.keys(csvData).forEach(sourceName => {
@@ -368,7 +378,6 @@ function computeAnalytics(csvData) {
       const validValues = sourceData
         .map(row => convertToNumeric(row[field]))
         .filter(value => value !== null && !isNaN(value)); // Filter out null and NaN values
-
       if (validValues.length > 0) {
         fieldAnalytics[field] = {
           min: Math.min(...validValues),
@@ -382,6 +391,7 @@ function computeAnalytics(csvData) {
           count: validValues.length, 
           unique : uniqueValues(validValues)
         };
+        fieldAnalytics[field].YTDfactor = yearToDateFactor(field);
         if (fieldAnalytics[field].unique > 4 && fieldAnalytics[field].unique <= 16  && parseInt(fieldAnalytics[field].median) < fieldAnalytics[field].unique-1 ) {
           fieldAnalytics[field].uniqueArray = [...new Set(validValues)];
           fieldAnalytics[field].convexProbability = createProbabilityArray(fieldAnalytics[field].mode, fieldAnalytics[field].unique, fieldAnalytics[field].uniqueArray);
