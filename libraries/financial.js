@@ -147,6 +147,27 @@ const financial = {
                 return averageBalance.toFixed(2);
             }
         },
+        depositProfit: {
+            description: "Calculates the profit of deposit accounts",
+            implementation: function(portfolio, balance, interest, charges, waived, deposits) {
+                //chargesIncome - interestExpense - deposits * depositUnitCost) * 12 +  * marginTarget - fraudLoss - ddaExpense) * (1-taxRate)
+                // can this be adapted for savings and CDs
+                const creditRate = window.libraries.api.trates.values[12] * .75; // 75% of current funding curve
+                const creditForFunding = creditRate * balance * (1 - financial.attributes.ddaReserveRequired.value); 
+                let YTDfactor = window.analytics.checking[aiTranslater(Object.keys(window.analytics.checking), 'interest')].YTDfactor;
+                const interestExpense = interest * YTDfactor;
+                YTDfactor = window.analytics.checking[aiTranslater(Object.keys(window.analytics.checking), 'charges')].YTDfactor;
+                const feeIncome = (charges - waived) * YTDfactor;
+                YTDfactor = window.analytics.checking[aiTranslater(Object.keys(window.analytics.checking), 'deposits')].YTDfactor;
+                console.log('deposits YTD', YTDfactor);
+                const depositsExpense = deposits * financial.attributes.depositUnitCost.value * YTDfactor;
+                const annualExpense = financial.dictionaries.ddaAnnualExpense.values.Commercial;  // more work needed -- determine consumer vs. commercial
+                const fraudLoss = organization.attributes.capitalTarget.value * financial.attributes.fraudLossFactor.value * balance;
+                const profit = (feeIncome + creditForFunding - interestExpense - depositsExpense - annualExpense - fraudLoss) * (1 - window.libraries.organization.attributes.taxRate.value);
+                console.log(`portfolio: ${portfolio}, balance: ${balance}, creditRate: ${creditRate}, creditForFunding: ${creditForFunding}, interestExpense: ${interest}, charges: ${charges}, waived: ${waived}, depositsExpense: ${depositsExpense}, annualExpense: ${annualExpense}, fraudLoss: ${fraudLoss}, depositProfit: ${profit}`);
+                return profit;
+            }
+        },
         profit: {
             description: "Calculates the profit of a loan",
             implementation: function(portfolio, principal, rate, risk, open, payment, fees = null, maturity = null, term = null) {
@@ -201,11 +222,8 @@ const financial = {
                     month++;
                 }
                 const expectedLossProvision = lossProvision / monthsUntilMaturity / yearsUntilMaturity;  // spread lossProvision cost over yearsUntilMaturity
-
-                let nonInterestIncome = 0;
-                if (fees !== null) {
-                    nonInterestIncome = fees / termInYears;
-                }
+                nonInterestIncome = fees !== null ? fees / termInYears : 0;
+            
                 //const expectedLossProvision = probabilityOfDefault * (principal - (principal / financial.attributes.minimumLoanToValue.value * (1 - financial.attributes.expectedRecoveryRate.value))) / yearsUntilMaturity; 
                 const pretax = (interest - fundingExpense - originationExpense - servicingExpense + nonInterestIncome) * (1 - window.libraries.organization.attributes.taxRate.value); 
                 const profit = pretax - expectedLossProvision;
@@ -258,6 +276,19 @@ const financial = {
         savingsAnnualExpense: {
             description: "The savings account annual operating costs",
             value: 28
+        },
+        fraudLossFactor: {
+            description: "ratio of fraud losses to institution total deposits",
+            value: 0.005,
+        }
+    },
+    dictionaries: {
+        ddaAnnualExpense: {
+            description: "The checking account annual operating costs",
+            values: {
+                "Consumer": 112,
+                "Commercial": 145
+            }
         }
     }
 };
