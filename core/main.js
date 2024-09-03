@@ -72,9 +72,6 @@ function extractSources(formula) {
 function processFormula(identifiedSources, formula, uniqueKey, csvData) {
   const results = {};
 
-  // Get today's date
-  const today = new Date();
-
   console.log('Starting formula processing...');
   console.log('Identified Sources:', identifiedSources);
   console.log('Formula:', formula);
@@ -90,119 +87,152 @@ function processFormula(identifiedSources, formula, uniqueKey, csvData) {
     sourceData.forEach(row => {
       const uniqueId = row[uniqueKey];
       console.log('Processing row:', row);
-      //console.log('Unique ID:', uniqueId);
 
-      // Translate the formula by replacing source.field with actual data and executing functions
-      const translatedFormula = formula.replace(/(\w+)\.(\w+)/g, (match, source, field) => {
+      if (!results[uniqueId]) {
+        results[uniqueId] = { result: 0, count: 1, formula: '' };
+      } else {
+        results[uniqueId].count += 1;
+      }
+
+      console.log('pre formula', formula)
+      // Replace source.field with actual data or function results
+      const updatedFormula = formula.replace(new RegExp(`(${sourceName})\\.(\\w+)`, 'g'), (match, source, field) => {
         console.log('Match found:', match);
         console.log('Source:', source, 'Field:', field);
 
-        // Handle normal field data or potential function calls
         let headers = Object.keys(row);
         let translatedHeader = aiTranslater(headers, field);
 
-        // Check if this match is a function call in the libraries object
         for (const libName in window.libraries) {
           const lib = window.libraries[libName];
-
-          if (lib.functions[field] && typeof lib.functions[field].implementation === 'function') {
+        
+          if (lib.functions && lib.functions[field] && typeof lib.functions[field].implementation === 'function') {
             const functionDef = lib.functions[field];
-            //console.log(`Function detected in library '${libName}': ${field}`);
-
-            // Extract parameter values required by the function, removing default values
-            const paramNames = functionDef.implementation
+            console.log(`Function detected in library '${libName}': ${field}`);
+        
+            const paramInfo = functionDef.implementation
               .toString()
               .match(/\(([^)]*)\)/)[1]
               .split(',')
-              .map(param => param.split('=')[0].trim()); // Remove default values like '= null'
-            //console.log('Function Parameter Names:', paramNames);
-
-            // Retrieve parameter values from the CSV data
-            const args = paramNames.map(paramName => {
-              const paramHeader = aiTranslater(headers, paramName); // Translate param to CSV header
+              .map(param => {
+                const parts = param.split('=');
+                return {
+                  name: parts[0].trim(),
+                  isOptional: parts.length > 1 // If there's a default value, it's optional
+                };
+              });
+        
+            console.log('Function Parameter Info:', paramInfo);
+        
+            const args = paramInfo.map(info => {
+              const paramHeader = aiTranslater(headers, info.name);
               if (paramHeader) {
                 const paramValue = row[paramHeader];
-                //console.log(`pre date detect:  Parameter: ${paramName}, Value: ${paramValue}`);
                 if (isDate(paramValue)) {
-                  //console.log(`Date Parameter: ${paramName}, Value: ${paramValue}`);
-                  return new Date(paramValue); // Return date as Date object
+                  return new Date(paramValue);
                 } else if (typeof paramValue === "string") {
                   return paramValue.trim();
                 } else {
-                  //console.log(`Numeric Parameter: ${paramName}, Value: ${paramValue}`);
-                  return parseFloat(paramValue); // Get numeric value from CSV
+                  return parseFloat(paramValue);
                 }
               }
-              return null; // Use null for missing optional parameters
+              return info.isOptional ? undefined : null; // Undefined for optional, null for required and missing
             });
-
-            // Execute the function with the extracted parameters
+        
+            // Check if any required args (non-optional) are null
+            const hasNullRequiredArgs = args.some((arg, index) => arg === null && !paramInfo[index].isOptional);
+        
+            if (hasNullRequiredArgs) {
+              console.log('Skipping function evaluation due to missing required arguments.');
+              return '0';
+            }
+        
             const result = functionDef.implementation(...args);
             console.log('Function result:', result);
             return result;
           }
-        }
+        }        
 
-        // Handle normal field data if no function is detected
+        console.log('translatedHeader', translatedHeader)
         if (translatedHeader) {
           const value = row[translatedHeader];
           console.log('Field Value:', value);
 
-          // Check if the field is a date and calculate the difference in days
           if (isDate(value)) {
             const dateValue = new Date(value);
-            const differenceInTime = today - dateValue;
+            const differenceInTime = new Date() - dateValue;
             const differenceInDays = Math.floor(differenceInTime / (1000 * 3600 * 24));
             console.log('Date Difference:', differenceInDays);
-            return differenceInDays; // Return the difference in days
+            return differenceInDays;
           } else {
-            return `${parseFloat(value)}`; // Return the numeric value as a string
+            return `${parseFloat(value)}`;
           }
         }
-        return '0'; // Default to zero if no matching data
+        return '0';
       });
 
-      console.log('Translated Formula:', translatedFormula);
-
-      // Evaluate the translated formula
-      try {
-        const formulaFunction = new Function(`return (${translatedFormula});`);
-        const result = formulaFunction();
-        console.log('Formula Evaluation Result:', result);
-
-        // Store the evaluation result by unique identifier
-        if (result !== null) { // Only store non-null results
-          if (!results[uniqueId]) {
-            results[uniqueId] = { result: 0, count: 0 }; // Initialize if not present
-          }
-          results[uniqueId]['result'] += result; // Increment the result
-          results[uniqueId]['count'] += 1; // Increment the count
-
-          // Populate other fields based on the presentation configuration
-          if (appConfig.presentation && appConfig.presentation.columns) {
-            appConfig.presentation.columns.forEach(column => {
-              const headers = Object.keys(row);
-              const translatedColumn = aiTranslater(headers, column.field);
-              if (translatedColumn) {
-                if (results[uniqueId][column.field] !== undefined) {
-                  results[uniqueId][column.field] = `${results[uniqueId][column.field]}, ${row[translatedColumn]}`; 
-                } else if (row[translatedColumn]) {
-                  results[uniqueId][column.field] = row[translatedColumn];
-                }
-              }
-            });
-          }
+      console.log('Updated Formula:', updatedFormula);
+      // make sure all components of the formula are resolved before stored in results[uniqueId].formula object
+      const resolvedFormula = updatedFormula.replace(/(\w+)\.(\w+)/g, (match) => {
+        if (/^\d+(\.\d+)?$/.test(match)) {
+            // If match is already a number, leave it as is
+            return match;
+        } else {
+            console.log(`Unresolved part found: ${match}, setting it to 0.`);
+            return '0';  // Replace unresolved functions with 0
         }
-      } catch (error) {
-        console.error('Error evaluating formula:', error);
+      });
+
+      if (results[uniqueId].formula) {
+        results[uniqueId].formula = `${results[uniqueId].formula}, ${resolvedFormula}`;
+      } else {
+        results[uniqueId].formula =  resolvedFormula;
+      }
+      console.log(`formula by uniqueId: ${uniqueId} = ${results[uniqueId].formula}`);
+      // Populate other fields based on the presentation configuration
+      if (appConfig.presentation && appConfig.presentation.columns) {
+        appConfig.presentation.columns.forEach(column => {
+          const headers = Object.keys(row);
+          const translatedColumn = aiTranslater(headers, column.field);
+          if (translatedColumn) {
+            if (results[uniqueId][column.field] !== undefined) {
+              results[uniqueId][column.field] = `${results[uniqueId][column.field]}, ${row[translatedColumn]}`;
+            } else if (row[translatedColumn]) {
+              results[uniqueId][column.field] = row[translatedColumn];
+            }
+          }
+        });
       }
     });
   });
 
-  console.log('Final Results:', results);
-  return results; // Return the final results object containing all evaluated results
-}
+  // After processing all sources, evaluate the complete formula for each uniqueId
+  Object.keys(results).forEach(uniqueId => {
+    let formula = results[uniqueId].formula.replace(/^,\s*/, '');
+    console.log('Formula before evaluation:', formula);
 
+    try {
+        // Enclose each comma-delimited section in parentheses and replace commas with "+"
+        const finalFormula = formula.replace(/([^,]+)(,|$)/g, (match, group, comma) => {
+            return `(${group.trim()})${comma === ',' ? ' + ' : ''}`;
+        });
+
+        console.log('Final Formula for Evaluation:', finalFormula);
+
+        const formulaFunction = new Function(`return (${finalFormula});`);
+        const finalResult = formulaFunction();
+        console.log('Final Formula Evaluation Result:', finalResult);
+
+        results[uniqueId].result = finalResult;
+    } catch (error) {
+        console.error('Error evaluating final formula:', error);
+        results[uniqueId].result = 0;
+    }
+  });
+
+  console.log('Final Results:', results);
+  return results;
+}
 
 // Helper function to check if a value is a valid date
 function isDate(value) {
