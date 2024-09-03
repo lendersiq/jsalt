@@ -46,6 +46,23 @@ const financial = {
                 return { monthsUntilMaturity, yearsUntilMaturity };
             }
         },
+        daysSinceOpen: {
+            description: "Calculates the number of days from the open date of a financial instrument",
+            implementation: function(open = null) {
+                if (open) {
+                    const openDate = new Date(open);
+                    const currentDate = new Date();
+        
+                    // Calculate the number of days from openDate to currentDate
+                    const timeDifference = currentDate.getTime() - openDate.getTime(); // Difference in milliseconds
+                    const daysDifference = Math.floor(timeDifference / (1000 * 60 * 60 * 24)); // Convert milliseconds to days
+                    return daysDifference;
+                } else {
+                    console.warn('Open date not provided to daysSinceOpen');
+                    return null;
+                }
+            }
+        },
         sinceOpen: {
             description: "Calculates the number of months and years from the open date of a financial instrument",
             implementation: function(open = null) {
@@ -147,21 +164,22 @@ const financial = {
                 return averageBalance.toFixed(2);
             }
         },
-        depositProfit: {
+        ddaProfit: {
             description: "Calculates the profit of deposit accounts",
             implementation: function(portfolio, balance, interest, charges, waived, deposits) {
                 //chargesIncome - interestExpense - deposits * depositUnitCost) * 12 +  * marginTarget - fraudLoss - ddaExpense) * (1-taxRate)
-                // can this be adapted for savings and CDs
-                const creditRate = window.libraries.api.trates.values[12] * .75; // 75% of current funding curve
-                const creditForFunding = creditRate * balance * (1 - financial.attributes.ddaReserveRequired.value); 
-                let YTDfactor = window.analytics.checking[aiTranslater(Object.keys(window.analytics.checking), 'interest')].YTDfactor;
-                const interestExpense = interest * YTDfactor;
-                YTDfactor = window.analytics.checking[aiTranslater(Object.keys(window.analytics.checking), 'charges')].YTDfactor;
-                const feeIncome = (charges - waived) * YTDfactor;
-                YTDfactor = window.analytics.checking[aiTranslater(Object.keys(window.analytics.checking), 'deposits')].YTDfactor;
-                console.log('deposits YTD', YTDfactor);
-                const depositsExpense = deposits * financial.attributes.depositUnitCost.value * YTDfactor;
-                const annualExpense = financial.dictionaries.ddaAnnualExpense.values.Commercial;  // more work needed -- determine consumer vs. commercial
+                // can this be adapted for savings and CDs or create separate functions
+                let ddaType = "Consumer";
+                if (deposits > 6 && balance > financial.attributes.consumerDdaMaximum.value) { //ai  -- can consider standard deviation of checking balances
+                    ddaType = "Commercial";
+                } 
+                const creditRate = window.libraries.api.trates.values[12] * .50; // 50% of current funding curve
+                const creditForFunding = creditRate * balance * (1 - financial.attributes.ddaReserveRequired.value);  
+                const interestExpense = interest * window.analytics.checking[aiTranslater(Object.keys(window.analytics.checking), 'interest')].YTDfactor;
+                const feeIncome = (charges - waived) * window.analytics.checking[aiTranslater(Object.keys(window.analytics.checking), 'charges')].YTDfactor;
+                const depositsExpense = deposits * financial.attributes.depositUnitCost.value * window.analytics.checking[aiTranslater(Object.keys(window.analytics.checking), 'deposits')].YTDfactor;
+                
+                const annualExpense = financial.dictionaries.ddaAnnualExpense.values[ddaType];  
                 const fraudLoss = organization.attributes.capitalTarget.value * financial.attributes.fraudLossFactor.value * balance;
                 const profit = (feeIncome + creditForFunding - interestExpense - depositsExpense - annualExpense - fraudLoss) * (1 - window.libraries.organization.attributes.taxRate.value);
                 console.log(`portfolio: ${portfolio}, balance: ${balance}, creditRate: ${creditRate}, creditForFunding: ${creditForFunding}, interestExpense: ${interest}, charges: ${charges}, waived: ${waived}, depositsExpense: ${depositsExpense}, annualExpense: ${annualExpense}, fraudLoss: ${fraudLoss}, depositProfit: ${profit}`);
@@ -234,8 +252,12 @@ const financial = {
     },
     attributes: {
         smallLoanMaximum: {
-            description: "The dollar threshold that can distinguish a small business mircoloan or a personal loan from other loan types",
+            description: "The dollar threshold that can distinguish a small business micrcoloan or a personal loan from other loan types",
             value: 100000    
+        },
+        consumerDdaMaximum: {
+            description: "The dollar threshold that can distinguish a consumer from a commercial checking account",
+            value: 250000    
         },
         loanServicingFactor: {
             description: "The factor used to calculate loan servicing expenses",
