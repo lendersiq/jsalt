@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="../styles/base.css">
-  <title>Sales Report</title>
+  <title>checking profit</title>
 </head>
 <body>
   <div id="app-container"></div>
@@ -13,14 +13,15 @@
     const appConfig = {
       libraries: [
         'financial',
-        'organization'
+        'organization',
+        'https://bankersiq.com/api/trates/'
       ],
-      formula: 'checking.daysSinceOpen < 90 ? checking.balance : null',
+      formula: 'checking.ddaProfit',
       unique: 'Portfolio',
       presentation: {
         columns: [
-          { heading: 'Branch', field: 'branch' },
-          { heading: 'Officer', field: 'resp' }
+          { heading: 'Balance', field: 'balance' },
+          { heading: 'Branch', field: 'branch' }
         ],
       }
     };
