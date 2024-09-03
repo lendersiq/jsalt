@@ -48,66 +48,68 @@ function displayResultsInTable() {
 
   // Iterate over sorted combined results to construct each row
   sortedResults.forEach(([uniqueId, data]) => {
-    const row = document.createElement('tr');
+    if (data.result) {
+      const row = document.createElement('tr');
 
-    // Create the cell for the unique ID
-    const uniqueIdCell = document.createElement('td');
-    uniqueIdCell.textContent = `${uniqueId.toString()}  (${data.count})`; // Ensure unique ID is a string
-    row.appendChild(uniqueIdCell);
+      // Create the cell for the unique ID
+      const uniqueIdCell = document.createElement('td');
+      uniqueIdCell.textContent = `${uniqueId.toString()}  (${data.count})`; // Ensure unique ID is a string
+      row.appendChild(uniqueIdCell);
 
-    // Add cells based on presentation config
-    if (appConfig.presentation && appConfig.presentation.columns) {
-      appConfig.presentation.columns.forEach(column => {
-        const cell = document.createElement('td');
-        const field = column.field.toLowerCase(); // Use field for data access
+      // Add cells based on presentation config
+      if (appConfig.presentation && appConfig.presentation.columns) {
+        appConfig.presentation.columns.forEach(column => {
+          const cell = document.createElement('td');
+          const field = column.field.toLowerCase(); // Use field for data access
 
-        let values;
-        if (data[field]) {
-            // Ensure data[field] is a string before using split
-            if (typeof data[field] === 'string') {
-                values = data[field].split(',').map(v => parseFloat(v.trim()));
-            } else {
-                // If data[field] is already a number or an array of numbers, use it directly
-                values = Array.isArray(data[field]) ? data[field] : [parseFloat(data[field])];
-            }
-        } else {
-            values = [];
-        }
+          let values;
+          if (data[field]) {
+              // Ensure data[field] is a string before using split
+              if (typeof data[field] === 'string') {
+                  values = data[field].split(',').map(v => parseFloat(v.trim()));
+              } else {
+                  // If data[field] is already a number or an array of numbers, use it directly
+                  values = Array.isArray(data[field]) ? data[field] : [parseFloat(data[field])];
+              }
+          } else {
+              values = [];
+          }
 
-        // Determine the content of the cell based on the values
-        if (field === appConfig.unique.toLowerCase()) {
-            cell.textContent = uniqueId.toString();
-        } else if (values.length > 0) {
-            if (values.every(Number.isInteger) && values.every(v => v <= 9999)) {
-                // If all values are integers and none are greater than 9999 (beyond typical attribute or classifcation systems), calculate and display the mode
-                const modeValue = calculateMode(values);
-                cell.textContent = modeValue;
-            } else {
-                const sumValue = values.reduce((acc, v) => acc + v, 0);
-                cell.textContent = new Intl.NumberFormat('en-US', {
-                    style: 'currency',
-                    currency: 'USD'
-                }).format(sumValue);
-            }
-        } else {
-            cell.textContent = ''; // Default empty string if field is missing
-        }
+          // Determine the content of the cell based on the values
+          if (field === appConfig.unique.toLowerCase()) {
+              cell.textContent = uniqueId.toString();
+          } else if (values.length > 0) {
+              if (values.every(Number.isInteger) && values.every(v => v <= 9999)) {
+                  // If all values are integers and none are greater than 9999 (beyond typical attribute or classifcation systems), calculate and display the mode
+                  const modeValue = calculateMode(values);
+                  cell.textContent = modeValue;
+              } else {
+                  const sumValue = values.reduce((acc, v) => acc + v, 0);
+                  cell.textContent = new Intl.NumberFormat('en-US', {
+                      style: 'currency',
+                      currency: 'USD'
+                  }).format(sumValue);
+              }
+          } else {
+              cell.textContent = ''; // Default empty string if field is missing
+          }
 
-        row.appendChild(cell);
-    });
-  }
-  
-    // Create the cell for the result
-    const valueCell = document.createElement('td');
-    valueCell.textContent = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(data.result);
-    row.appendChild(valueCell);
+          row.appendChild(cell);
+      });
+    }
+    
+      // Create the cell for the result
+      const valueCell = document.createElement('td');
+      valueCell.textContent = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+      }).format(data.result);
+      row.appendChild(valueCell);
 
-    table.appendChild(row);
+      table.appendChild(row);
+      rows[uniqueId] = uniqueIdCell; // Store reference for updating
 
-    rows[uniqueId] = uniqueIdCell; // Store reference for updating
+    }
   });
   tableContainer.appendChild(table);
   const resultsContainer = document.createElement('div');
@@ -203,24 +205,33 @@ function displayResultsInTable() {
     // Create file inputs for each identified source
     const fileInputs = {};
     identifiedSources.forEach(sourceName => {
+      const step = document.createElement('div');
+      step.style.marginBottom = "10px";
       const label = document.createElement('label');
       label.htmlFor = `${sourceName}-file`;
-      label.textContent = `Choose ${sourceName.charAt(0).toUpperCase() + sourceName.slice(1)}:`;
-  
+      label.className = "custom-file-upload";
+      label.innerHTML = `Choose ${sourceName.charAt(0).toUpperCase() + sourceName.slice(1)} Source`;
+
       const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.csv';
+      input.type = "file";
+      input.accept = ".csv";
       input.id = `${sourceName}-file`;
-      input.style.display = 'block';
+      input.className = "hidden-file-input";
   
       // Check if all files are selected to enable the run button
       input.addEventListener('change', () => {
+        if (label) {
+          const fileName = input.files[0].name;
+          label.classList.add('completed');
+          label.innerHTML = `${sourceName}: ${fileName}`; 
+        }
         const allFilesSelected = identifiedSources.every(sourceName => fileInputs[sourceName].files.length > 0);
         runButton.disabled = !allFilesSelected;
       });
   
-      fileInputsContainer.appendChild(label);
-      fileInputsContainer.appendChild(input);
+      step.appendChild(label);
+      step.appendChild(input);
+      fileInputsContainer.appendChild(step);
       fileInputs[sourceName] = input;
     });
   
@@ -281,5 +292,4 @@ function displayResultsInTable() {
   document.addEventListener('DOMContentLoaded', () => {
     showRunModal();
     //placeholder for charts
-
   });
