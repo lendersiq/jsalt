@@ -161,7 +161,7 @@ function displayResultsInTable() {
   // Function to update unique columns using the mapping
   function updateUniqueColumns(mapping) {
     Object.entries(combinedResults).forEach(([uniqueId, _]) => {
-      if (mapping[uniqueId]) {
+      if (mapping[uniqueId] && rows[uniqueId]) {  // mapping (mapping[uniqueId]) is present and table row (rows[uniqueId]) has been rendered
         rows[uniqueId].textContent = mapping[uniqueId] + ' (' + combinedResults[uniqueId].count + ')';
       }
     });
