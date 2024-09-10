@@ -72,17 +72,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Calculate totals for each unique value in the selected field
     const totals = {};
     Object.entries(combinedResults).forEach(([uniqueId, record]) => {
-      if (typeof record[selectedField] === 'string') {  
-        values = record[selectedField].split(',').map(v => parseFloat(v.trim()));
-      } else {
-          // If data[field] is already a number or an array of numbers, use it directly
-          values = Array.isArray(record[selectedField]) ? record[selectedField] : [parseFloat(record[selectedField])]; 
-      }
-      const fieldValue = calculateMode(values);
-      if (totals[fieldValue]) {
-        totals[fieldValue] += record.result; // Sum the result values
-      } else {
-        totals[fieldValue] = record.result;
+      if (record.result) {
+        if (typeof record[selectedField] === 'string') {  
+          values = record[selectedField].split(',').map(v => parseFloat(v.trim()));
+        } else {
+            // If data[field] is already a number or an array of numbers, use it directly
+            values = Array.isArray(record[selectedField]) ? record[selectedField] : [parseFloat(record[selectedField])]; 
+        }
+        const fieldValue = calculateMode(values);
+        if (totals[fieldValue]) {
+          totals[fieldValue] += record.result; // Sum the result values
+        } else {
+          totals[fieldValue] = record.result;
+        }
       }
     });
 
