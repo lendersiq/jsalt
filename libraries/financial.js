@@ -173,7 +173,7 @@ const financial = {
                 if (deposits > 6 && balance > financial.attributes.consumerDdaMaximum.value) { //ai  -- can consider standard deviation of checking balances
                     ddaType = "Commercial";
                 } 
-                const creditRate = window.libraries.api.trates.values[12] * .50; // 50% of current funding curve
+                const creditRate = window.libraries.api.trates.values[12] * 0.627; // operational risk, regulatory risk, deposit acquisition factor, interest rate risk, and liquidity discount.
                 const creditForFunding = creditRate * balance * (1 - financial.attributes.ddaReserveRequired.value);  
                 const interestExpense = interest * window.analytics.checking[aiTranslater(Object.keys(window.analytics.checking), 'interest')].YTDfactor;
                 const feeIncome = (charges - waived) * window.analytics.checking[aiTranslater(Object.keys(window.analytics.checking), 'charges')].YTDfactor;
@@ -192,7 +192,7 @@ const financial = {
                 const interest = principal * rate;
                 const {monthsUntilMaturity, yearsUntilMaturity} = financial.functions.untilMaturity.implementation(maturity);
                 const {termInMonths, termInYears} = financial.functions.getTerm.implementation(term, open, maturity);
-                const fundingRate = window.libraries.api.trates.values[monthsUntilMaturity] * .75 // 75% of current funding curve
+                const fundingRate = window.libraries.api.trates.values[monthsUntilMaturity] * 0.8725 // adjust for liquidity, convenience, and loyalty premiums
                 const fundingExpense = principal * fundingRate;
 				let originationFactor = financial.attributes.loanOriginationFactor.value;
 				let smallLoanMaximum = financial.attributes.smallLoanMaximum.value;  //default
