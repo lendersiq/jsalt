@@ -194,7 +194,7 @@ const financial = {
                 const {termInMonths, termInYears} = financial.functions.getTerm.implementation(term, open, maturity);
                 const fundingRate = window.libraries.api.trates.values[monthsUntilMaturity] * 0.8725 // adjust for liquidity, convenience, and loyalty premiums
                 const fundingExpense = principal * fundingRate;
-				let originationFactor = financial.attributes.loanOriginationFactor.value;
+				let originationFactor = financial.attributes.variableOriginationFactor.value;
 				let smallLoanMaximum = financial.attributes.smallLoanMaximum.value;  //default
 				const principalObject = window.analytics.loan[aiTranslater(Object.keys(window.analytics.loan), 'principal')];
 				if (principalObject && Object.hasOwn(principalObject, "stdDeviation")) {
@@ -204,8 +204,8 @@ const financial = {
 				if (isConsumerSmallBusiness) {
 					originationFactor = originationFactor / 2;
 				}
-                const originationExpense = Math.min(principal, financial.attributes.principalCostMaximum.value) * originationFactor / (Math.min(termInYears, 10));
-                const servicingExpense = principal * financial.attributes.loanServicingFactor.value / yearsUntilMaturity;
+                const originationExpense = financial.attributes.fixedOriginationExpense.value + Math.min(principal, financial.attributes.principalCostMaximum.value) * originationFactor / (Math.min(termInYears, 10));
+                const servicingExpense = financial.attributes.fixedServicingExpense.value + principal * financial.attributes.loanServicingFactor.value / yearsUntilMaturity;
 
                 //console.log('risk key:', aiTranslater(Object.keys(window.analytics.loan), 'risk'));
                 const riskObject = window.analytics.loan[aiTranslater(Object.keys(window.analytics.loan), 'risk')];
@@ -263,13 +263,21 @@ const financial = {
             description: "The factor used to calculate loan servicing expenses",
             value: 0.0025
         },
-        loanOriginationFactor: {
+        variableOriginationFactor: {
             description: "The factor used to calculate loan origination expenses",
             value: 0.01
         },
         principalCostMaximum: {
             description: "Maximum principal loan origination costs scale with loan size",
-            value: 2000000
+            value: 1500000
+        },
+        fixedOriginationExpense: {
+            description: "Constant across all loans, covering administration, system, and processing costs.",
+            value: 500
+        },
+        fixedServicingExpense: {
+            description: "Constant administrative, payment processing, systems, and regulatory expenses that apply to all loans, regardless of size or complexity.",
+            value: 500
         },
         minimumLoanToValue: {
             description: "Typical Loan-to-Value (LTV) Ratio minimum. LTV expresses the loan amount as a percentage of the loan collateral's current value.",
