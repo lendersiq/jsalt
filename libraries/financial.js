@@ -144,23 +144,22 @@ const financial = {
         },
         averageBalance: {
             description: "Calculates the average balance of a loan over its term",
-            implementation: function(principal, payment, maturity) {
+            implementation: function(principal, payment, rate, maturity) {
                 // Determine months until maturity using either maturity date or term
                 const {monthsUntilMaturity, yearsUntilMaturity} = financial.functions.untilMaturity.implementation(maturity);
-                // Calculate the total balance over the loan period
-                let totalBalance = 0;
-                let currentBalance = principal;
-
-                for (let month = 0; month < monthsUntilMaturity; month++) {
-                    totalBalance += currentBalance;
-                    currentBalance -= payment;
-                    if (currentBalance < 0) {
-                        currentBalance = 0; // Ensure balance doesn't go negative
-                    }
+                const monthlyRate = rate < 1 ? parseFloat(rate) / 12 : parseFloat(rate / 100) / 12;
+                console.log('payment, monthly rate, monthsUntilMaturity', payment, monthlyRate, monthsUntilMaturity)
+                // Calculate the total principal over the loan period
+                let cummulativePrincipal = 0;
+                let tempPrincipal = principal;
+                var month = 0;
+                while (month < monthsUntilMaturity && tempPrincipal > 0) {
+                    cummulativePrincipal += tempPrincipal;
+                    tempPrincipal -= payment - tempPrincipal * monthlyRate;
+                    month++;
                 }
-
                 // Calculate average balance
-                const averageBalance = totalBalance / monthsUntilMaturity;
+                const averageBalance = cummulativePrincipal / monthsUntilMaturity;
                 return averageBalance.toFixed(2);
             }
         },
@@ -186,30 +185,60 @@ const financial = {
                 return profit;
             }
         },
+        calculateFundingRate: {
+            description: "Calculates the adjusted funding rate of loan",
+            implementation: function(months) {
+                if (!financial.attributes || !window.libraries.api.trates.values[months]) {
+                    throw new Error("Required api or library data is missing for funding rate calculation.");
+                }
+                const adjustmentCoefficient = financial.attributes.adjustmentCoefficient.value;
+                if (adjustmentCoefficient < 0 || adjustmentCoefficient > 1) {
+                    throw new Error("Adjustment Coefficient must be between 0 and 1.");
+                }
+                const XL = adjustmentCoefficient * financial.attributes.liquidityWeight.value; 
+                const XC = adjustmentCoefficient * financial.attributes.convenienceWeight.value; 
+                const XB = adjustmentCoefficient * financial.attributes.loyaltyWeight.value;
+                const X = XL + XC + XB;
+                const correspondingTreasuryRate = window.libraries.api.trates.values[months];
+                return correspondingTreasuryRate * (1 - X);
+            }
+        },
         profit: {
             description: "Calculates the profit of a loan",
-            implementation: function(portfolio, principal, rate, risk, open, payment, fees = null, maturity = null, term = null) {
-                const interest = principal * rate;
+            implementation: function(portfolio, principal, rate, risk, open, payment = null, fees = null, maturity = null, term = null) {
                 const {monthsUntilMaturity, yearsUntilMaturity} = financial.functions.untilMaturity.implementation(maturity);
+                const monthlyRate = rate < 1 ? parseFloat(rate) / 12 : parseFloat(rate / 100) / 12;
+                const monthlyPayment = (principal * (monthlyRate / (1 - Math.pow(1 + monthlyRate, -monthsUntilMaturity)))).toFixed(2);
+                const totalInterest = monthlyPayment * monthsUntilMaturity - principal;
+                const AveragePrincipal = totalInterest / (monthlyRate * monthsUntilMaturity);
                 const {termInMonths, termInYears} = financial.functions.getTerm.implementation(term, open, maturity);
-                const fundingRate = window.libraries.api.trates.values[monthsUntilMaturity] * 0.8725 // adjust for liquidity, convenience, and loyalty premiums
-                const fundingExpense = principal * fundingRate;
-				let originationFactor = financial.attributes.variableOriginationFactor.value;
+                const interestIncome = AveragePrincipal * rate;
+                const fundingRate = financial.functions.calculateFundingRate.implementation(monthsUntilMaturity); // adjust for liquidity, convenience, and loyalty premiums
+                const fundingExpense = AveragePrincipal * fundingRate;
+
 				let smallLoanMaximum = financial.attributes.smallLoanMaximum.value;  //default
 				const principalObject = window.analytics.loan[aiTranslater(Object.keys(window.analytics.loan), 'principal')];
-				if (principalObject && Object.hasOwn(principalObject, "stdDeviation")) {
-					smallLoanMaximum = principalObject.stdDeviation;
+				if (principalObject && Object.hasOwn(principalObject, "median")) {
+					smallLoanMaximum = principalObject.median > smallLoanMaximum ? principalObject.median : smallLoanMaximum;  // the median of each loan principal in the entire portfolio (50th percentile)
 				}
-				const isConsumerSmallBusiness = termInYears <= 5 && principal < smallLoanMaximum; 
-				if (isConsumerSmallBusiness) {
-					originationFactor = originationFactor / 2;
+
+                let isConsumerSmallBusiness = false;
+                if (payment) { //if loan payment is a valid argument test original
+                    const originalPrincipal = monthlyPayment * termInMonths - totalInterest;
+                    isConsumerSmallBusiness = originalPrincipal < smallLoanMaximum; 
+                } else{
+				    isConsumerSmallBusiness = termInYears <= 5 && principal < smallLoanMaximum; 
+                }
+				let complexityFactor = 1;
+                if (isConsumerSmallBusiness) {
+                    complexityFactor = 0.5
 				}
-                const originationExpense = financial.attributes.fixedOriginationExpense.value + Math.min(principal, financial.attributes.principalCostMaximum.value) * originationFactor / (Math.min(termInYears, 10));
-                const servicingExpense = financial.attributes.fixedServicingExpense.value + principal * financial.attributes.loanServicingFactor.value / yearsUntilMaturity;
+                const originationExpense = (financial.attributes.fixedOriginationExpense.value + Math.min(principal, financial.attributes.principalCostMaximum.value) * financial.attributes.variableOriginationFactor.value * complexityFactor) / Math.min(termInYears, 10);
+                const servicingExpense = (financial.attributes.fixedServicingExpense.value + principal * financial.attributes.loanServicingFactor.value / yearsUntilMaturity) * complexityFactor;
 
                 //console.log('risk key:', aiTranslater(Object.keys(window.analytics.loan), 'risk'));
                 const riskObject = window.analytics.loan[aiTranslater(Object.keys(window.analytics.loan), 'risk')];
-                //console.log('risk data:', riskObject, Object.hasOwn(riskObject, "convexProbability"), riskObject.convexProbability);
+                console.log('risk data:', riskObject, Object.hasOwn(riskObject, "convexProbability"), riskObject.convexProbability);
                 let probabilityOfDefault = 0;
                 if (riskObject && Object.hasOwn(riskObject, "convexProbability")) { // risk data reached statistical signifigance
                     if (typeof risk === "string") {
@@ -227,30 +256,36 @@ const financial = {
                 } else if (risk && risk !== 'NULL') {
                     probabilityOfDefault = .02;
                 }
-
-                let exposureAtDefault = principal;
-                let lossProvision = 0;
-                let month = 0; 
-                while (month < monthsUntilMaturity && exposureAtDefault > 0) {
-                    lossGivenDefault = (exposureAtDefault / financial.attributes.minimumLoanToValue.value * (1 - financial.attributes.expectedRecoveryRate.value))
-                    if (lossGivenDefault > 0) {
-                        lossProvision += probabilityOfDefault * lossGivenDefault; // Math.max(probabilityOfDefault * lossGivenDefault, financial.attributes.minimumOperatingRisk.value * probabilityOfDefault);
-                    }
-                    exposureAtDefault -= payment - exposureAtDefault * (rate/12);
-                    month++;
-                }
-                const expectedLossProvision = lossProvision / monthsUntilMaturity / yearsUntilMaturity;  // spread lossProvision cost over yearsUntilMaturity
-                nonInterestIncome = fees !== null ? fees / termInYears : 0;
+                const lossProvision =  AveragePrincipal / financial.attributes.minimumLoanToValue.value * (1 - financial.attributes.expectedRecoveryRate.value) * probabilityOfDefault;                
+                const expectedLossProvision = lossProvision / yearsUntilMaturity;  // spread lossProvision cost over yearsUntilMaturity
+                
+                const nonInterestIncome = fees !== null ? fees / termInYears : 0;
             
                 //const expectedLossProvision = probabilityOfDefault * (principal - (principal / financial.attributes.minimumLoanToValue.value * (1 - financial.attributes.expectedRecoveryRate.value))) / yearsUntilMaturity; 
-                const pretax = (interest - fundingExpense - originationExpense - servicingExpense + nonInterestIncome) * (1 - window.libraries.organization.attributes.taxRate.value); 
+                const pretax = (interestIncome - fundingExpense - originationExpense - servicingExpense + nonInterestIncome) * (1 - window.libraries.organization.attributes.taxRate.value); 
                 const profit = pretax - expectedLossProvision;
-                console.log(`portfolio: ${portfolio}, principal: ${principal}, risk: ${risk}, fees: ${fees}, years until maturity: ${yearsUntilMaturity}, term in years: ${termInYears}, rate: ${rate}, interest: ${interest}, funding rate: ${fundingRate}, funding expense: ${fundingExpense}, origination expense: ${originationExpense}, servicing expense: ${servicingExpense}, non interest income: ${nonInterestIncome}, probability of default: ${probabilityOfDefault}, pretax: ${pretax}, expected loss: ${expectedLossProvision}, profit: ${profit.toFixed(2)}`);
+                console.log(`portfolio: ${portfolio}, principal: ${principal}, average: ${AveragePrincipal}, risk: ${risk}, fees: ${fees}, years until maturity: ${yearsUntilMaturity}, term in years: ${termInYears}, rate: ${rate}, interest: ${interestIncome}, funding rate: ${fundingRate}, funding expense: ${fundingExpense}, origination expense: ${originationExpense}, servicing expense: ${servicingExpense}, non interest income: ${nonInterestIncome}, probability of default: ${probabilityOfDefault}, pretax: ${pretax}, expected loss: ${expectedLossProvision}, profit: ${profit.toFixed(2)}`);
                 return profit;
             }
         }
     },
     attributes: {
+        adjustmentCoefficient: {
+            description: "Represents the base percentage adjustment applied to the Treasury rate.",
+            value: 0.05   
+        },
+        liquidityWeight: {
+            description: "Represents an adjustment which refelects that banks offer higher liquidity than treasury securities.",
+            value: 0.9   
+        },
+        convenienceWeight: {
+            description: "Represents an adjustment which refelects that banks provide convenient methods to transact business",
+            value: 0.85   
+        },
+        loyaltyWeight: {
+            description: "Represents an adjustment which reflects that a long-term depositor relationships reduce the need for the highest rates",
+            value: 0.8   
+        },
         smallLoanMaximum: {
             description: "The dollar threshold that can distinguish a small business micrcoloan or a personal loan from other loan types",
             value: 100000    
@@ -284,7 +319,7 @@ const financial = {
             value: 0.80
         },
         expectedRecoveryRate: {
-            description: " This represents the percentage of the exposure that a lender expects to recover if the borrower defaults expressed as a percentage (.01 to 1)",
+            description: "This represents the percentage of the exposure that a lender expects to recover if the borrower defaults expressed as a percentage (.01 to 1)",
             value: 0.60
         },
         minimumOperatingRisk: {
