@@ -1,24 +1,98 @@
-// Custom function to parse CSV content
+// main.js
+
+// Ensure appConfig is defined
+if (typeof appConfig === 'undefined') {
+  throw new Error('appConfig is not defined. Please ensure it is defined before including main.js.');
+}
+
+/**
+* Extracts unique source names from the formula.
+* parser handles:
+* -Quoted fields containing commas.
+* -Escaped quotes within fields (represented as double quotes "").
+* -Newlines within quoted fields.
+* -Leading and trailing whitespace.
+*/
 function parseCSV(csvContent, callback) {
-  const lines = csvContent.split('\n');
-  const headers = lines[0].split(',').map(header => header.trim());
   const data = [];
+  let headers = [];
+  let isHeader = true;
+  let currentRow = [];
+  let currentField = '';
+  let inQuotes = false;
 
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',');
-    if (values.length !== headers.length) continue; // Skip invalid rows
+  for (let i = 0; i < csvContent.length; i++) {
+    const char = csvContent[i];
+    const nextChar = csvContent[i + 1];
 
-    const row = {};
-    headers.forEach((header, index) => {
-      let value = values[index].trim();
-      // Convert to number if applicable
-      if (!isNaN(value)) value = parseFloat(value);
-      row[header] = value;
-    });
-    data.push(row);
+    if (char === '"' && inQuotes && nextChar === '"') {
+      // Handle escaped quotes
+      currentField += '"';
+      i++;
+    } else if (char === '"' && inQuotes) {
+      // End of quoted field
+      inQuotes = false;
+    } else if (char === '"' && !inQuotes) {
+      // Start of quoted field
+      inQuotes = true;
+    } else if (char === ',' && !inQuotes) {
+      // End of field
+      currentRow.push(currentField.trim());
+      currentField = '';
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (currentField || currentRow.length > 0) {
+        currentRow.push(currentField.trim());
+        currentField = '';
+        if (isHeader) {
+          headers = currentRow;
+          isHeader = false;
+        } else {
+          const rowData = {};
+          for (let j = 0; j < headers.length; j++) {
+            let value = currentRow[j];
+            // Convert to number if applicable
+            if (value && !isNaN(value)) value = parseFloat(value);
+            rowData[headers[j]] = value;
+          }
+          data.push(rowData);
+        }
+        currentRow = [];
+      }
+    } else {
+      currentField += char;
+    }
+  }
+
+  // Handle the last line if it doesn't end with a newline
+  if (currentField || currentRow.length > 0) {
+    currentRow.push(currentField.trim());
+    if (isHeader) {
+      headers = currentRow;
+    } else {
+      const rowData = {};
+      for (let j = 0; j < headers.length; j++) {
+        let value = currentRow[j];
+        // Convert to number if applicable
+        if (value && !isNaN(value)) value = parseFloat(value);
+        rowData[headers[j]] = value;
+      }
+      data.push(rowData);
+    }
   }
 
   callback(data);
+}
+
+function evaluateExpression(expression) {
+  const sanitizedExpression = expression.replace(/[^0-9+\-*/(). ]/g, '');
+  try {
+    // Use a safe subset of JavaScript operators
+    const result = Function(`'use strict'; return (${sanitizedExpression})`)();
+    return result;
+  } catch (error) {
+    console.error('Error evaluating expression:', error);
+    return 0;
+  }
 }
 
 // Synonym library to map common synonyms to their respective headers
@@ -219,8 +293,7 @@ function processFormula(identifiedSources, formula, uniqueKey, csvData) {
 
         console.log('Final Formula for Evaluation:', finalFormula);
 
-        const formulaFunction = new Function(`return (${finalFormula});`);
-        const finalResult = formulaFunction();
+        const finalResult = evaluateExpression(finalFormula);
         console.log('Final Formula Evaluation Result:', finalResult);
 
         results[uniqueId].result = finalResult;
