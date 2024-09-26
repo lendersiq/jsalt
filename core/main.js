@@ -173,18 +173,19 @@ function processFormula(identifiedSources, formula, uniqueKey, csvData) {
       const updatedFormula = formula.replace(new RegExp(`(${sourceName})\\.(\\w+)`, 'g'), (match, source, field) => {
         console.log('Match found:', match);
         console.log('Source:', source, 'Field:', field);
-
-        let headers = Object.keys(row);
-        let translatedHeader = aiTranslater(headers, field);
-
+      
+        const headers = Object.keys(row);
+        const translatedHeader = aiTranslater(headers, field);
+      
         for (const libName in window.libraries) {
           const lib = window.libraries[libName];
-        
+      
           if (lib.functions && lib.functions[field] && typeof lib.functions[field].implementation === 'function') {
             const functionDef = lib.functions[field];
             console.log(`Function detected in library '${libName}': ${field}`);
-        
-            const paramInfo = functionDef.implementation
+      
+            // Extract function parameter names and determine if they are optional
+            let paramInfo = functionDef.implementation
               .toString()
               .match(/\(([^)]*)\)/)[1]
               .split(',')
@@ -195,10 +196,20 @@ function processFormula(identifiedSources, formula, uniqueKey, csvData) {
                   isOptional: parts.length > 1 // If there's a default value, it's optional
                 };
               });
-        
+      
+            // Safely add 'source' as an optional parameter if it's not already included
+            if (!paramInfo.some(param => param.name === 'source')) {
+              paramInfo.push({ name: 'source', isOptional: true });
+            }
+      
             console.log('Function Parameter Info:', paramInfo);
-        
+      
             const args = paramInfo.map(info => {
+              if (info.name === 'source') {
+                // Include source as the source name
+                return sourceName;
+              }
+      
               const paramHeader = aiTranslater(headers, info.name);
               if (paramHeader) {
                 const paramValue = row[paramHeader];
@@ -212,26 +223,26 @@ function processFormula(identifiedSources, formula, uniqueKey, csvData) {
               }
               return info.isOptional ? undefined : null; // Undefined for optional, null for required and missing
             });
-        
+      
             // Check if any required args (non-optional) are null
             const hasNullRequiredArgs = args.some((arg, index) => arg === null && !paramInfo[index].isOptional);
-        
+      
             if (hasNullRequiredArgs) {
-              console.log('Skipping function evaluation due to missing required arguments.');
+              console.log('Skipping function evaluation due to missing required arguments.', args);
               return '0';
             }
-        
+      
             const result = functionDef.implementation(...args);
             console.log('Function result:', result);
             return result;
           }
-        }        
-
-        console.log('translatedHeader', translatedHeader)
+        }
+      
+        console.log('Translated Header:', translatedHeader);
         if (translatedHeader) {
           const value = row[translatedHeader];
           console.log('Field Value:', value);
-
+      
           if (isDate(value)) {
             const dateValue = new Date(value);
             const differenceInTime = new Date() - dateValue;
@@ -239,11 +250,13 @@ function processFormula(identifiedSources, formula, uniqueKey, csvData) {
             console.log('Date Difference:', differenceInDays);
             return differenceInDays;
           } else {
-            return `${parseFloat(value)}`;
+            const numericValue = parseFloat(value);
+            return isNaN(numericValue) ? '0' : `${numericValue}`;
           }
         }
         return '0';
       });
+      
 
       console.log('Updated Formula:', updatedFormula);
       // make sure all components of the formula are resolved before stored in results[uniqueId].formula object
