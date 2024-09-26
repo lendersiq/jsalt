@@ -163,9 +163,10 @@ const financial = {
                 return averageBalance.toFixed(2);
             }
         },
-        ddaProfit: {
+        depositProfit: {
             description: "Calculates the profit of deposit accounts",
-            implementation: function(portfolio, balance, interest, charges, waived, deposits) {
+            implementation: function(portfolio, balance, interest, charges, waived, deposits, source=null) {
+		console.log('source:', source);   
                 //chargesIncome - interestExpense - deposits * depositUnitCost) * 12 +  * marginTarget - fraudLoss - ddaExpense) * (1-taxRate)
                 // can this be adapted for savings and CDs or create separate functions
                 let ddaType = "Consumer";
