@@ -166,7 +166,8 @@ const financial = {
         depositProfit: {
             description: "Calculates the profit of deposit accounts",
             implementation: function(portfolio, balance, interest, charges, waived, deposits, source=null) {
-		console.log('source:', source);   
+                //savings source '(charges - interestExpense - (deposits / lifeInMonths * depositUnitCost / 2) + (withdrawals / lifeInMonths * withdrawalUnitCost) * 12 + balance * marginTarget - fraudLoss - savingsAnnualExpense) * (1-taxRate)',
+                console.log('source:', source);
                 //chargesIncome - interestExpense - deposits * depositUnitCost) * 12 +  * marginTarget - fraudLoss - ddaExpense) * (1-taxRate)
                 // can this be adapted for savings and CDs or create separate functions
                 let ddaType = "Consumer";
@@ -207,11 +208,12 @@ const financial = {
         profit: {
             description: "Calculates the profit of a loan",
             implementation: function(portfolio, principal, rate, risk, open, payment = null, fees = null, maturity = null, term = null) {
+                if (principal === 0) return 0; // zero principal implies closed loan, so return 0 profit
                 const {monthsUntilMaturity, yearsUntilMaturity} = financial.functions.untilMaturity.implementation(maturity);
                 const monthlyRate = rate < 1 ? parseFloat(rate) / 12 : parseFloat(rate / 100) / 12;
                 const monthlyPayment = (principal * (monthlyRate / (1 - Math.pow(1 + monthlyRate, -monthsUntilMaturity)))).toFixed(2);
-                const totalInterest = monthlyPayment * monthsUntilMaturity - principal;
-                const AveragePrincipal = totalInterest / (monthlyRate * monthsUntilMaturity);
+                const lifetimeInterest = monthlyPayment * monthsUntilMaturity - principal;
+                const AveragePrincipal = lifetimeInterest / (monthlyRate * monthsUntilMaturity);
                 const {termInMonths, termInYears} = financial.functions.getTerm.implementation(term, open, maturity);
                 const interestIncome = AveragePrincipal * rate;
                 const fundingRate = financial.functions.calculateFundingRate.implementation(monthsUntilMaturity); // adjust for liquidity, convenience, and loyalty premiums
@@ -225,7 +227,7 @@ const financial = {
 
                 let isConsumerSmallBusiness = false;
                 if (payment) { //if loan payment is a valid argument test original
-                    const originalPrincipal = monthlyPayment * termInMonths - totalInterest;
+                    const originalPrincipal = monthlyPayment * termInMonths - lifetimeInterest;
                     isConsumerSmallBusiness = originalPrincipal < smallLoanMaximum; 
                 } else{
 				    isConsumerSmallBusiness = termInYears <= 5 && principal < smallLoanMaximum; 
@@ -241,21 +243,23 @@ const financial = {
                 const riskObject = window.analytics.loan[aiTranslater(Object.keys(window.analytics.loan), 'risk')];
                 console.log('risk data:', riskObject, Object.hasOwn(riskObject, "convexProbability"), riskObject.convexProbability);
                 let probabilityOfDefault = 0;
-                if (riskObject && Object.hasOwn(riskObject, "convexProbability")) { // risk data reached statistical signifigance
-                    if (typeof risk === "string") {
-                        const match = risk.match(/^(\d+)([a-zA-Z])$/);
-                        if (match) {
-                            // Extract the number part and convert it to a number
-                            risk = parseInt(match[1], 10) + 0.5;
+                if (risk && risk !== 'NULL') {
+                    if (riskObject && Object.hasOwn(riskObject, "convexProbability")) { // risk data reached statistical signifigance
+                        if (typeof risk === "string") {
+                            const match = risk.match(/^(\d+)([a-zA-Z])$/);
+                            if (match) {
+                                // Extract the number part and convert it to a number
+                                risk = parseInt(match[1], 10) + 0.5;
+                            }
                         }
-                    }
-                    if (Object.hasOwn(riskObject.convexProbability, `'${risk}'`)) {
-                        probabilityOfDefault = riskObject.convexProbability[`'${risk}'`] * .01;
+                        if (Object.hasOwn(riskObject.convexProbability, `'${risk}'`)) {
+                            probabilityOfDefault = riskObject.convexProbability[`'${risk}'`] * .01;
+                        } else {
+                            console.warn('cannot find key in convexProbability:', risk);
+                        }
                     } else {
-                        console.warn('cannot find key in convexProbability:', risk);
+                        probabilityOfDefault = .02;
                     }
-                } else if (risk && risk !== 'NULL') {
-                    probabilityOfDefault = .02;
                 }
                 const lossProvision =  AveragePrincipal / financial.attributes.minimumLoanToValue.value * (1 - financial.attributes.expectedRecoveryRate.value) * probabilityOfDefault;                
                 const expectedLossProvision = lossProvision / yearsUntilMaturity;  // spread lossProvision cost over yearsUntilMaturity
